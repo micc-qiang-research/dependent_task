@@ -84,9 +84,12 @@ class Data:
             for j in range(self.K):
                 comm.append(data.get(float))
             self.server_comm.append(comm)
-        self.cloud_comm = 15 * np.sum(np.array(self.server_comm)).mean()
-        self.uc_comm = self.cloud_comm
-        self.ue_comm = [np.sum(i[:-1]) / (self.K-1) for i in self.server_comm]
+
+        # 用户和云的通信延迟为：云和其他边缘服务器通信延迟的均值
+        self.uc_comm = np.array(self.server_comm[self.K-1][:-1]).mean()
+        
+        # 用户和第i个边缘服务器之间的通信延迟为：第i个边缘服务器和其他边缘服务器通信延迟的均值
+        self.ue_comm = [np.sum(i[:-1]) / (self.K-1) for i in self.server_comm[:-1]]
         
         return os.path.join(os.path.dirname(path),data.get(str))
 
@@ -161,7 +164,7 @@ class EdgeServer:
     def __core_ESTfind(self, t, t_prepare, t_execute, core):
         for i in core:
             if i.upper >= t_execute + max(t, i.lower + t_prepare):
-                return i.lower
+                return max(t, i.lower+t_prepare)
 
     # 放置在此server最早的开始时间
     def ESTfind(self, t, t_prepare, t_execute):
@@ -264,16 +267,16 @@ class SDTS:
         self.G = self.data.G
         self.func_process = np.array(self.data.func_process) # 函数执行时间
         self.edge_bandwith = np.array(self.data.edge_bandwidth) # 边缘服务器带宽 1..(k-1)
-        self.cloud_comm = self.data.cloud_comm # 云服务器带宽
         self.func_startup = np.array(self.data.func_startup) # 函数环境大小
         self.func_edge_download = self.get_func_edge_download(self.func_startup, self.edge_bandwith) # 函数在各个边缘下载时间
         self.func_prepare = np.array(self.data.func_prepare)
         self.server_comm = np.array(self.data.server_comm) # 服务器之间的通信时间
         self.ue_comm = np.array(self.data.ue_comm) # 用户<->edge
-        self.uc_comm = np.array(self.data.uc_comm) # 用户<->cloud
+        self.uc_comm = self.data.uc_comm # 用户<->cloud
 
         self.t_server_download_complete = [0] * (self.data.K - 1) # edge server当前下载完成时间
         self.N = self.data.N
+        self.K = self.data.K
         
         self.strategy = [SchedStrategy(i, self.data.N) for i in range(self.data.N)] # 任务放置的服务器、核、开始时间、结束时间
 
@@ -324,7 +327,7 @@ class SDTS:
             if d == 0: # source
                 return self.uc_comm
             else:
-                return self.cloud_comm
+                return self.server_comm[self.K - 1][self.gs(d).get_edge_id()]
         else:
             if d == 0:
                 return self.ue_comm[server]
@@ -344,12 +347,11 @@ class SDTS:
                                 self.ue_comm[self.gs(i).get_edge_id()]) \
             for i in self.G.predecessors(func)])
         else:
-            
-            sub_task = [min( \
-                self.gs(i).get_cloud_end() + self.get_weight(i, func) * 
-                                      self.get_trans_delay(i, None, True),  
-                self.gs(i).get_edge_end() + self.get_weight(i, func) * 
-                                    self.get_trans_delay(i, server, False)) \
+            sub_task = [min(
+                self.gs(i).get_cloud_end() + \
+                    self.get_weight(i, func) * self.get_trans_delay(i, None, True),  
+                self.gs(i).get_edge_end() + \
+                    self.get_weight(i, func) * self.get_trans_delay(i, server, False)) 
                 for i in self.G.predecessors(func) if i != 0]
             
             res = max(sub_task) if len(sub_task) > 0 else 0
@@ -396,7 +398,8 @@ class SDTS:
                 early_idx = idx
 
         # start_time是任务开始执行时间, early_start_time是核开始执行
-        start_time = early_start_time + func_prepare[func]
+        # start_time = early_start_time + func_prepare[func]
+        start_time = early_start_time
 
         ### 选择 early_idx对应的server 作为目标server       
         # 更新server的下载完成时间
@@ -407,7 +410,7 @@ class SDTS:
         self.edge_server[early_idx].place(early_core, start_time - func_prepare[func], start_time + func_process[func][early_idx] )
         
         # 记录调度策略
-        self.strategy[func].deploy_in_edge(idx, early_core.idx, t_download_finish, start_time, start_time + func_process[func][idx])
+        self.strategy[func].deploy_in_edge(early_idx, early_core.idx, t_download_finish, start_time, start_time + func_process[func][idx])
     
 
     def sdts(self):
@@ -449,7 +452,7 @@ class SDTS:
             # update
             for s in G.successors(v):
                 L.put((-priority_dict[s],s))
-            # print(v)
+            print(v)
 
         for s in self.strategy:
             s.debug()
