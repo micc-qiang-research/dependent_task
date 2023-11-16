@@ -1,6 +1,6 @@
 data:
 
-server数量（包括cloud） 任务数量（不包括source、sink）
+server数量（包括cloud） 任务数量（包括source、sink）
 
 edge server的下载带宽
 

@@ -50,7 +50,7 @@ class Data:
     def read_dag(self, path):
         self.G = nx.DiGraph()
         data = pd.read_csv(path)
-        edges = [(int(s),int(d),{"weight": w}) for s,d,w in data.to_numpy()]
+        edges = [(int(s)-1,int(d)-1,{"weight": w}) for s,d,w in data.to_numpy()]
         self.G.add_weighted_edges_from(edges)
 
 
@@ -132,17 +132,17 @@ class SDTS:
     def priority(self, G, func_edge_download, edge_bandwith, func_process):
         vertices = list(nx.topological_sort(G))
         vertices.reverse() # 计算优先级的次序
-        N = self.data.N + 2
-        priority_dict = { i+1: 0 for i in range(N)}
+        N = self.data.N
+        priority_dict = { i: 0 for i in range(N)}
         assert N == len(vertices), "N != len(vertices)"
 
         d_mean = sum(edge_bandwith) / (self.data.K - 1)**2 # edge server之间的平均带宽
 
         for v in vertices:
-            if v == N or v == 1:
+            if v == N - 1 or v == 0:
                 continue
-            t_mean = func_process[v-2].mean() # func v的平均处理时间
-            t_d_mean = func_edge_download[v-2].mean() # func v的平均下载时间
+            t_mean = func_process[v].mean() # func v的平均处理时间
+            t_d_mean = func_edge_download[v].mean() # func v的平均下载时间
             for s in G.successors(v):
                 priority_dict[v] = max(priority_dict[v], self.get_weight(G, v, s) * d_mean + priority_dict[s])
             priority_dict[v] = priority_dict[v] + t_mean + t_d_mean
@@ -151,19 +151,26 @@ class SDTS:
 
     def sdts(self):
         G = self.data.G
-        func_process = np.array(self.data.func_process) # 2..(n-1)
+        func_process = np.array(self.data.func_process)
         edge_bandwith = np.array(self.data.edge_bandwidth) # 1..(k-1)
-        func_startup = np.array(self.data.func_startup) # 1..(n-1)
+        func_startup = np.array(self.data.func_startup)
         func_edge_download = self.get_func_edge_download(func_startup, edge_bandwith)
 
         t_k_c = [0] * (self.data.K - 1) # edge server当前下载完成时间
         priority_dict =  self.priority(G, func_edge_download, edge_bandwith, func_process)
 
         L = PQueue()
-        L.put((-priority_dict[1],1))
+        L.put((-priority_dict[0],0))
+        N = self.data.N
+        h = [-1] * N
         
         while not L.empty():
             _, v = L.get()
+            if v == 0 or v == N - 1:
+                pass
+            else:
+                pass
+
             for s in G.successors(v):
                 L.put((-priority_dict[s],s))
             print(v)
