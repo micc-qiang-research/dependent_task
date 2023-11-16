@@ -2,6 +2,8 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
+import numpy as np
+from queue import PriorityQueue
 
 # 读取txt，每次返回一个值
 class TxtReader:
@@ -61,9 +63,9 @@ class Data:
         for i in range(self.K-1):
             self.edge_bandwidth.append(data.get(float))
         
-        self.func_prepare = []
+        self.func_startup = []
         for i in range(self.N):
-            self.func_prepare.append(data.get(float))
+            self.func_startup.append(data.get(float))
         
         self.func_process = []
         for i in range(self.N):
@@ -96,8 +98,79 @@ class Data:
         plt.show()
 
 
+class PQueue:
+    def __init__(self):
+        self.queue = PriorityQueue()
+        self.label = set()
+
+    def get(self):
+        return self.queue.get()        
+
+    def put(self, item):
+        if item[1] in self.label:
+            return    
+        self.label.add(item[1])
+        return self.queue.put(item)
+
+    def empty(self):
+        return self.queue.empty()
+
+
+class SDTS:
+    def __init__(self, data):
+        self.data = data
+
+    # 根据函数环境大小即边缘带宽，计算下载时间
+    def get_func_edge_download(self, func_startup, edge_bandwith):
+        return (np.tile(func_startup.reshape(len(func_startup), 1), (1, self.data.K-1)).T / edge_bandwith.reshape(-1,1)).T
+    
+    # 得到边的权重
+    def get_weight(self, G, s, d):
+        res = G.edges[s,d]["weight"]["weight"]
+        return res
+
+    def priority(self, G, func_edge_download, edge_bandwith, func_process):
+        vertices = list(nx.topological_sort(G))
+        vertices.reverse() # 计算优先级的次序
+        N = self.data.N + 2
+        priority_dict = { i+1: 0 for i in range(N)}
+        assert N == len(vertices), "N != len(vertices)"
+
+        d_mean = sum(edge_bandwith) / (self.data.K - 1)**2 # edge server之间的平均带宽
+
+        for v in vertices:
+            if v == N or v == 1:
+                continue
+            t_mean = func_process[v-2].mean() # func v的平均处理时间
+            t_d_mean = func_edge_download[v-2].mean() # func v的平均下载时间
+            for s in G.successors(v):
+                priority_dict[v] = max(priority_dict[v], self.get_weight(G, v, s) * d_mean + priority_dict[s])
+            priority_dict[v] = priority_dict[v] + t_mean + t_d_mean
+        return priority_dict
+    
+
+    def sdts(self):
+        G = self.data.G
+        func_process = np.array(self.data.func_process) # 2..(n-1)
+        edge_bandwith = np.array(self.data.edge_bandwidth) # 1..(k-1)
+        func_startup = np.array(self.data.func_startup) # 1..(n-1)
+        func_edge_download = self.get_func_edge_download(func_startup, edge_bandwith)
+
+        t_k_c = [0] * (self.data.K - 1) # edge server当前下载完成时间
+        priority_dict =  self.priority(G, func_edge_download, edge_bandwith, func_process)
+
+        L = PQueue()
+        L.put((-priority_dict[1],1))
+        
+        while not L.empty():
+            _, v = L.get()
+            for s in G.successors(v):
+                L.put((-priority_dict[s],s))
+            print(v)
 
 
 if __name__ == '__main__':
-    db = Data("./data/data_1.txt")
-    db.draw_dag()
+    data = Data("./data/data_1.txt")
+    # data.draw_dag()
+    # print(data.func_process)
+    SDTS(data).sdts()
