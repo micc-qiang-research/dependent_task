@@ -181,6 +181,9 @@ class EdgeServer:
         idx = core.idx
         self.cores[idx].occupy(start, end)
 
+    def release(self, core, start, end):
+        self.cores[idx].release(start, end)
+
 class SchedStrategy:
     def __init__(self, func, N):
         self.edge = False
@@ -282,6 +285,7 @@ class SDTS:
         self.pos_user = 0
         self.pos_edge = 1
         self.pos_cloud = 2
+        self.is_scheduler = set() # 目前已经调度的节点
         
         self.strategy = [SchedStrategy(i, self.data.N) for i in range(self.data.N)] # 任务放置的服务器、核、开始时间、结束时间
 
@@ -412,16 +416,61 @@ class SDTS:
 
 
     def _update_G_(self, G_, source, dest):
-        if self.gs(source).get_cloud_end() + self.get_weight(source, dest) * self.uc_comm < \
-            self.gs(source).get_edge_end() + self.get_weight(source, dest) * self.ue_comm[self.gs(source).get_edge_id()]:
+        if source == self.source:
+            assert dest != self.sink, "error"
             G_.add_edge(source, dest)
+            G_.add_edge(source, -dest)
+        elif dest == self.sink:
+            if self.input_ready(source, dest, self.pos_edge, self.pos_user) <= \
+                self.input_ready(source, dest, self.pos_cloud, self.pos_user):
+                G_.add_edge(source, dest)
+            else:
+                G_.add_edge(-source, dest)
+        else:
+            # dest
+            if self.input_ready(source, dest, self.pos_edge, self.pos_edge) <= \
+                self.input_ready(source, dest, self.pos_cloud, self.pos_edge):
+                G_.add_edge(source, dest)
+            else:
+                G_.add_edge(-source, dest)  
+
+            # -dest
+            if self.input_ready(source, dest, self.pos_edge, self.pos_cloud) <= \
+                self.input_ready(source, dest, self.pos_cloud, self.pos_cloud):
+                G_.add_edge(source, -dest)
+            else:
+                G_.add_edge(-source, -dest)  
+            
+
+    def _all_successor_scheduler(self, node):
+        return set(self.G.successors(node)).issubset(self.is_scheduler)
 
     # 新func添加后，更新G_
-    def task_refinement(self, G_, G, func):
+    def task_refinement(self, G_, G, dest):
         L_c = [] # 等待被clean的节点
-        for j in G.predecessors(func):
-            if G_.out_degree(s) == 1:
-                L_c.append(s)
+        for source in G.predecessors(dest):
+            self._update_G_(G_, source, dest)
+            if self._all_successor_scheduler(source):
+                G_.remove_edge(source, self.G_end)
+                L_c.append(source)
+                if source != self.source:
+                    G_.remove_edge(-source, self.G_end)
+                    L_c.append(-source)
+        
+        while L_c:
+            node = L_c.pop()
+            if len(list(G_.successors(node))) == 0:
+                # for source in G_.predecessors(node):
+                #     G_.remove_edge(source, node)
+                #     L_c.append(source)
+                G_.remove_node(node) # 一个node代表一个部署到云或者边缘的策略
+                if node < 0:
+                    self.gs(-node).clear_cloud_deploy()
+                    # TODO cloud的resource如何管理？
+                else:
+                    self.gs(node).clear_edge_deploy()
+                    edge_parms = self.gs(node).edge_param
+                    self.edge_server[node].release(edge_parms["core"], edge_parms["start"], edge_parms["end"])
 
 
     def sdts(self):
@@ -459,13 +508,16 @@ class SDTS:
                 # t_i_c = self.get_input_ready_for_cloud(v)
                 t_i_c = self.get_input_ready(v, self.pos_cloud)
                 self.gs(v).deploy_in_cloud(t_i_c, t_i_c + func_process[v][-1])
-                # self.G_.add_edge(v, self.G_end)
-                # self.G_.add_edge(, self.G_end)
+                # TODO. 如何管理cloud的资源
+                self.G_.add_edge(v, self.G_end)
+                self.G_.add_edge(-v, self.G_end)
 
             # update
             for s in G.successors(v):
                 L.put((-priority_dict[s],s))
-            print(v)
+            # print(v)
+            self.is_scheduler.add(v)
+            self.task_refinement(self.G_, self.G, v)
 
         for s in self.strategy:
             s.debug()
