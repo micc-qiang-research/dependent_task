@@ -14,7 +14,7 @@ class SDTS:
         self.data = data
         self.G_ = nx.DiGraph()
         self.G_end = "end"
-        self.edge_server = [EdgeServer(2) for i in range(self.data.K - 1)]
+        self.edge_server = [EdgeServer(i, 2) for i in range(self.data.K - 1)]
         self.G = self.data.G
         self.func_process = np.array(self.data.func_process) # 函数执行时间
         self.edge_bandwith = np.array(self.data.edge_bandwidth) # 边缘服务器带宽 1..(k-1)
@@ -147,20 +147,16 @@ class SDTS:
 
             self.gs(func).clear_edge_deploy() # 清除deploy
 
-        # start_time是任务开始执行时间, early_start_time是核开始执行
-        # start_time = early_start_time + func_prepare[func]
-        start_time = early_start_time
-
         ### 选择 early_idx对应的server 作为目标server       
         # 更新server的下载完成时间
         t_download_finish = self.t_server_download_complete[early_idx] + func_edge_download[func][early_idx]
         self.t_server_download_complete[early_idx] = t_download_finish
 
         # 将任务放置
-        self.edge_server[early_idx].place(early_core, start_time - func_prepare[func], start_time + func_process[func][early_idx] )
+        self.edge_server[early_idx].place(early_core, early_start_time - func_prepare[func], early_start_time + func_process[func][early_idx] )
         
-        # 记录调度策略
-        self.strategy[func].deploy_in_edge(early_idx, early_core.idx, t_download_finish, start_time, start_time + func_process[func][idx])
+        # 记录调度策略，策略记录的开始时间是开始执行时间，不包括准备时间
+        self.strategy[func].deploy_in_edge(early_idx, early_core.idx, t_download_finish, early_start_time, early_start_time + func_process[func][early_idx])
 
 
     def _update_G_(self, G_, source, dest):
@@ -188,6 +184,7 @@ class SDTS:
                 G_.add_edge(source, -dest)
             else:
                 G_.add_edge(-source, -dest)  
+        # draw_dag(G_)
             
 
     def _all_successor_scheduler(self, node):
@@ -207,10 +204,15 @@ class SDTS:
         
         while L_c:
             node = L_c.pop()
+
+            # already delete
+            if node not in G_.nodes: continue
+
             if len(list(G_.successors(node))) == 0:
-                # for source in G_.predecessors(node):
-                #     G_.remove_edge(source, node)
-                #     L_c.append(source)
+                for source in G_.predecessors(node):
+                    # G_.remove_edge(source, node)
+                    L_c.append(source)
+                # print("--- remove node : ", node)
                 G_.remove_node(node) # 一个node代表一个部署到云或者边缘的策略
                 if node < 0:
                     self.gs(-node).clear_cloud_deploy()
@@ -218,7 +220,7 @@ class SDTS:
                 else:
                     self.gs(node).clear_edge_deploy()
                     edge_parms = self.gs(node).edge_param
-                    self.edge_server[node].release(edge_parms["core"], edge_parms["start"], edge_parms["end"])
+                    self.edge_server[edge_parms["id"]].release(edge_parms["core"], edge_parms["start"] - self.func_prepare[node], edge_parms["end"])
 
 
     def sdts(self):
@@ -269,9 +271,10 @@ class SDTS:
 
         for s in self.strategy:
             s.debug()
+        draw_dag(self.G_)
 
 
 if __name__ == '__main__':
-    data = Data("./data/data_1.txt")
+    data = Data("./data/data_2.txt")
     # draw_dag(data.G)
     SDTS(data).sdts()

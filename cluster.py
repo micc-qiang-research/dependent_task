@@ -31,7 +31,8 @@ class Core:
         return self.interval.__iter__()
         
 class EdgeServer:
-    def __init__(self, core):
+    def __init__(self, idx, core):
+        self.idx = idx
         self.cores = [Core(i) for i in range(core)]
 
     # 在某个核上查找任务最早开始时间
@@ -53,7 +54,9 @@ class EdgeServer:
 
     def place(self, core, start, end):
         idx = core.idx
+        print(f"edge[{self.idx}-{idx}] occupy: {start}-{end}")
         self.cores[idx].occupy(start, end)
 
-    def release(self, core, start, end):
-        self.cores[idx].release(start, end)
+    def release(self, core_id, start, end):
+        print(f"edge[{self.idx}-{core_id}] release: {start}-{end}")
+        self.cores[core_id].release(start, end)

@@ -73,4 +73,3 @@ class SchedStrategy:
             print("cloud: " + str(self.cloud_param))
         if self.user:
             print("user: " + str(self.user_param))
-        print("*"*20)
