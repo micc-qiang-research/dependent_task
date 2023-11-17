@@ -189,7 +189,7 @@ class SchedStrategy:
         self.func = func # 记录是哪个函数的策略
         self.N = N # 函数个数
 
-    def deploy_in_edge(self, server, core, t_download_finish, t_start, t_end):
+    def deploy_in_edge(self, server, core = None, t_download_finish = None, t_start = None, t_end = None):
         self.edge = True
         self.edge_param = {
             "id": server,
@@ -277,6 +277,11 @@ class SDTS:
         self.t_server_download_complete = [0] * (self.data.K - 1) # edge server当前下载完成时间
         self.N = self.data.N
         self.K = self.data.K
+        self.source = 0
+        self.sink = self.N - 1
+        self.pos_user = 0
+        self.pos_edge = 1
+        self.pos_cloud = 2
         
         self.strategy = [SchedStrategy(i, self.data.N) for i in range(self.data.N)] # 任务放置的服务器、核、开始时间、结束时间
 
@@ -317,78 +322,69 @@ class SDTS:
         print(priority_dict)
         return priority_dict
 
-    '''
-        返回某个函数d要和某种server传输数据的延迟
-        1. is_cloud为true, 和cloud交互
-        2. 否则，和edge server交互
-    '''
-    def get_trans_delay(self, d, server=None, is_cloud=False):
-        if is_cloud:
-            if d == 0: # source
-                return self.uc_comm
+
+    def input_ready(self, func1, func2, pos1, pos2):
+        weight = self.get_weight(func1, func2)
+        match pos1:
+            case self.pos_user:
+                assert func1 == self.source, "error"
+                match pos2:
+                    case self.pos_user: # user -> user
+                        assert False, "error"
+                    case self.pos_cloud: # user -> cloud
+                        return self.uc_comm * weight
+                    case self.pos_edge: # user -> edge
+                        server = self.gs(func2).get_edge_id()
+                        return self.ue_comm[server] * weight
+            case self.pos_edge:
+                match pos2:
+                    case self.pos_user: # edge -> user
+                        assert func2 == self.sink, "error"
+                        server = self.gs(func1).get_edge_id()
+                        return self.gs(func1).get_edge_end() + self.ue_comm[server] * weight
+                    case self.pos_cloud: # edge -> cloud
+                        server = self.gs(func1).get_edge_id()
+                        return self.gs(func1).get_edge_end() + self.server_comm[server][self.K - 1] * weight
+                    case self.pos_edge: # edge -> edge
+                        s1 = self.gs(func1).get_edge_id()
+                        s2 = self.gs(func2).get_edge_id()
+                        return self.gs(func1).get_edge_end() + self.server_comm[s1][s2] * weight
+            case self.pos_cloud:
+                match pos2:
+                    case self.pos_user: # cloud -> user
+                        return self.gs(func1).get_cloud_end() + self.uc_comm * weight
+                    case self.pos_cloud: # cloud -> cloud
+                        return self.gs(func1).get_cloud_end()
+                    case self.pos_edge: # cloud -> edge
+                        server = self.gs(func2).get_edge_id()
+                        return self.gs(func1).get_cloud_end() + self.server_comm[server][self.K-1]
+            case _:
+                assert False, "input ready error"
+
+    def get_input_ready(self, func2, pos2):
+        res = 0
+        for i in self.G.predecessors(func2):
+            if i == self.source:
+                v = self.input_ready(i, func2, self.pos_user, pos2)
             else:
-                return self.server_comm[self.K - 1][self.gs(d).get_edge_id()]
-        else:
-            if d == 0:
-                return self.ue_comm[server]
-            else:
-                return self.server_comm[self.gs(d).get_edge_id()][server]
-
-
-    '''
-        func在server上，计算数据准备好时间
-    '''
-    def get_input_ready(self, server, func, sink=False):
-        if sink:
-            return max([min( \
-                self.gs(i).get_cloud_end() + self.get_weight(i, func) * \
-                                      self.uc_comm,  
-            self.gs(i).get_edge_end() + self.get_weight(i, func) * 
-                                self.ue_comm[self.gs(i).get_edge_id()]) \
-            for i in self.G.predecessors(func)])
-        else:
-            sub_task = [min(
-                self.gs(i).get_cloud_end() + \
-                    self.get_weight(i, func) * self.get_trans_delay(i, None, True),  
-                self.gs(i).get_edge_end() + \
-                    self.get_weight(i, func) * self.get_trans_delay(i, server, False)) 
-                for i in self.G.predecessors(func) if i != 0]
-            
-            res = max(sub_task) if len(sub_task) > 0 else 0
-            
-            if 0 in self.G.predecessors(func):
-                res = max(self.get_weight(0, func) * \
-                            self.get_trans_delay(0, server, False), res)
-            return res
-
-
-    '''
-        func在cloud上，计算准备好的时间
-    '''
-    def get_input_ready_for_cloud(self, func):
-
-        sub_task = [min( \
-            self.gs(i).get_cloud_end(),  
-            self.gs(i).get_edge_end() + self.get_weight(i, func) * 
-                                self.get_trans_delay(i, None, True)) \
-                for i in self.G.predecessors(func) if i != 0]
-            
-        res = max(sub_task) if len(sub_task) > 0 else 0
-        
-        if 0 in self.G.predecessors(func):
-            res = max(self.get_weight(0, func) * \
-                        self.get_trans_delay(0, None, True), res)
+                v = min(
+                    self.input_ready(i, func2, self.pos_edge, pos2),
+                    self.input_ready(i, func2, self.pos_cloud, pos2),
+                )
+            res = max(v, res)
         return res
-
 
     def edge_server_selection(self, func, func_edge_download, func_prepare, func_process):
         early_start_time = P.inf
         early_core = None
         early_idx = -1
         for idx, server in enumerate(self.edge_server):
+            self.gs(func).deploy_in_edge(idx) # 尝试deploy
+
             t_e = self.t_server_download_complete[idx] + func_edge_download[func][idx] + func_prepare[func] # 环境准备好时间
             
-            t_i = self.get_input_ready(idx, func) # 数据依赖准备好时间
+            # t_i = self.get_input_ready(idx, func) # 数据依赖准备好时间
+            t_i = self.get_input_ready(func, self.pos_edge) # 数据依赖准备好时间
             t = max(t_e, t_i)
             # 得到在此服务器上的最早开始时间
             core, start_time = server.ESTfind(t, func_prepare[func], func_process[func][idx])
@@ -396,6 +392,8 @@ class SDTS:
                 early_start_time = start_time
                 early_core = core
                 early_idx = idx
+
+            self.gs(func).clear_edge_deploy() # 清除deploy
 
         # start_time是任务开始执行时间, early_start_time是核开始执行
         # start_time = early_start_time + func_prepare[func]
@@ -411,7 +409,20 @@ class SDTS:
         
         # 记录调度策略
         self.strategy[func].deploy_in_edge(early_idx, early_core.idx, t_download_finish, start_time, start_time + func_process[func][idx])
-    
+
+
+    def _update_G_(self, G_, source, dest):
+        if self.gs(source).get_cloud_end() + self.get_weight(source, dest) * self.uc_comm < \
+            self.gs(source).get_edge_end() + self.get_weight(source, dest) * self.ue_comm[self.gs(source).get_edge_id()]:
+            G_.add_edge(source, dest)
+
+    # 新func添加后，更新G_
+    def task_refinement(self, G_, G, func):
+        L_c = [] # 等待被clean的节点
+        for j in G.predecessors(func):
+            if G_.out_degree(s) == 1:
+                L_c.append(s)
+
 
     def sdts(self):
         G = self.G
@@ -436,7 +447,8 @@ class SDTS:
                 if v == 0:
                     self.gs(v).deploy_in_user(0, 0)
                 else:
-                    t_i = self.get_input_ready(None, v, True)
+                    # t_i = self.get_input_ready(None, v, True)
+                    t_i = self.get_input_ready(v, self.pos_user)
                     self.gs(v).deploy_in_user(t_i, t_i)
                 self.G_.add_edge(v, self.G_end)    
             else:
@@ -444,7 +456,8 @@ class SDTS:
                 self.edge_server_selection(v, func_edge_download, func_prepare, func_process)
                 
                 # 根据cloud clone
-                t_i_c = self.get_input_ready_for_cloud(v)
+                # t_i_c = self.get_input_ready_for_cloud(v)
+                t_i_c = self.get_input_ready(v, self.pos_cloud)
                 self.gs(v).deploy_in_cloud(t_i_c, t_i_c + func_process[v][-1])
                 # self.G_.add_edge(v, self.G_end)
                 # self.G_.add_edge(, self.G_end)
