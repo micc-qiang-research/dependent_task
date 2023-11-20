@@ -70,6 +70,11 @@ class SchedStrategy:
         }
         assert start == end, "user deploy error"
 
+    def get_user_end(self):
+        if not self.user:
+            assert False, "no user deploy"
+        return self.user_param["end"]
+
     def debug(self):
         print("*"*20)
         print("func: " + str(self.func))
@@ -81,38 +86,27 @@ class SchedStrategy:
             print("user: " + str(self.user_param))
     
     def debug_readable(self):
-        colors = [
-            "#E6194B",
-            "#3CB44B",
-            "#FFE119",
-            "#4364DB",
-            "#F58231",
-            "#911EB4",
-            "#42D4F4",
-            "#F032E6",
-            "#888888",
-            "#000000",
-            "#469990",
-        ]
+        from util import colors, prepare_color, download_color, user_color
         func = self.func
         if func != 0 and func != self.N - 1:
             func_color = colors[func - 1]
-        prepare_color = colors[-3]
-        download_color = colors[-2]
-        user_color = colors[-1]
+        bars = ""
+
         str_json = "{{\"row\": \"{}\", \"from\": {}, \"to\": {}, \"color\": \"{}\"}},"
         if self.edge:
             name = "edge_" + str(self.edge_param["id"]) + "_" + str(self.edge_param["core"])
             name_download = "edge_" + str(self.edge_param["id"]) + "_d"
             # download 
-            print(str_json.format(name_download, self.edge_param["t_download_start"], self.edge_param["t_download_end"], download_color))
+            bars = bars + str_json.format(name_download, self.edge_param["t_download_start"], self.edge_param["t_download_end"], download_color)
 
             # prepare
-            print(str_json.format(name, self.edge_param["t_prepare_start"], self.edge_param["t_prepare_end"], prepare_color))
+            bars = bars + str_json.format(name, self.edge_param["t_prepare_start"], self.edge_param["t_prepare_end"], prepare_color)
             
             # exec
-            print(str_json.format(name, self.edge_param["t_execute_start"], self.edge_param["t_execute_end"], func_color))
+            bars = bars + str_json.format(name, self.edge_param["t_execute_start"], self.edge_param["t_execute_end"], func_color)
         if self.cloud:
-            print(str_json.format("cloud", self.cloud_param["start"], self.cloud_param["end"], func_color))
+            bars = bars + str_json.format("cloud", self.cloud_param["start"], self.cloud_param["end"], func_color)
         if self.user:
-            print(str_json.format("user", self.user_param["start"], self.user_param["end"]+1e-2, user_color))
+            bars = bars + str_json.format("user", self.user_param["start"], self.user_param["end"]+1e-2, user_color)
+        
+        return bars

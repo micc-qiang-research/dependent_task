@@ -5,7 +5,7 @@ import os
 import numpy as np
 import portion as P
 from data import Data
-from util import PQueue, draw_dag
+from util import *
 from cluster import EdgeServer
 from strategy import SchedStrategy
 
@@ -276,8 +276,11 @@ class SDTS:
             self.is_scheduler.add(v)
             self.task_refinement(self.G_, self.G, v)
 
+        bars = ""
         for s in self.strategy:
-            s.debug_readable()
+            bars = bars + s.debug_readable()
+        output_gantt_json(bars[:-1], self.gs(self.sink).get_user_end())
+        draw_gantt()
         # draw_dag(self.G_)
 
 
