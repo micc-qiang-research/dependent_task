@@ -149,6 +149,7 @@ class SDTS:
 
         ### 选择 early_idx对应的server 作为目标server       
         # 更新server的下载完成时间
+        t_download_start = self.t_server_download_complete[early_idx]
         t_download_finish = self.t_server_download_complete[early_idx] + func_edge_download[func][early_idx]
         self.t_server_download_complete[early_idx] = t_download_finish
 
@@ -156,7 +157,13 @@ class SDTS:
         self.edge_server[early_idx].place(early_core, early_start_time - func_prepare[func], early_start_time + func_process[func][early_idx] )
         
         # 记录调度策略，策略记录的开始时间是开始执行时间，不包括准备时间
-        self.strategy[func].deploy_in_edge(early_idx, early_core.idx, t_download_finish, early_start_time, early_start_time + func_process[func][early_idx])
+        self.strategy[func].deploy_in_edge(early_idx, early_core.idx, \
+            t_download_start=t_download_start, \
+            t_download_end=t_download_finish, \
+            t_prepare_start=early_start_time - func_prepare[func], \
+            t_prepare_end=early_start_time,\
+            t_execute_start=early_start_time, \
+            t_execute_end=early_start_time + func_process[func][early_idx])
 
 
     def _update_G_(self, G_, source, dest):
@@ -220,7 +227,7 @@ class SDTS:
                 else:
                     self.gs(node).clear_edge_deploy()
                     edge_parms = self.gs(node).edge_param
-                    self.edge_server[edge_parms["id"]].release(edge_parms["core"], edge_parms["start"] - self.func_prepare[node], edge_parms["end"])
+                    self.edge_server[edge_parms["id"]].release(edge_parms["core"], edge_parms["t_prepare_start"] , edge_parms["t_execute_end"])
 
 
     def sdts(self):
@@ -270,8 +277,8 @@ class SDTS:
             self.task_refinement(self.G_, self.G, v)
 
         for s in self.strategy:
-            s.debug()
-        draw_dag(self.G_)
+            s.debug_readable()
+        # draw_dag(self.G_)
 
 
 if __name__ == '__main__':

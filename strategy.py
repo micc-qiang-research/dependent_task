@@ -6,14 +6,20 @@ class SchedStrategy:
         self.func = func # 记录是哪个函数的策略
         self.N = N # 函数个数
 
-    def deploy_in_edge(self, server, core = None, t_download_finish = None, t_start = None, t_end = None):
+    def deploy_in_edge(self, server, core = None, \
+        t_download_start = None, t_download_end = None, \
+        t_prepare_start = None,  t_prepare_end = None, \
+        t_execute_start = None, t_execute_end = None):
         self.edge = True
         self.edge_param = {
             "id": server,
             "core": core,
-            "download_finish": t_download_finish,
-            "start": t_start,
-            "end": t_end
+            "t_download_start": t_download_start,
+            "t_download_end": t_download_end,
+            "t_prepare_start": t_prepare_start,
+            "t_prepare_end": t_prepare_end,
+            "t_execute_start": t_execute_start,
+            "t_execute_end": t_execute_end,
         }
     
     def clear_edge_deploy(self):
@@ -38,12 +44,12 @@ class SchedStrategy:
     def get_edge_start(self):
         if not self.edge:
             assert False, "no edge deploy"
-        return self.edge_param["start"]
+        return self.edge_param["t_execute_start"]
 
     def get_edge_end(self):
         if not self.edge:
             assert False, "no edge deploy"
-        return self.edge_param["end"]
+        return self.edge_param["t_execute_end"]
 
     def get_cloud_start(self):
         if not self.cloud:
@@ -73,3 +79,40 @@ class SchedStrategy:
             print("cloud: " + str(self.cloud_param))
         if self.user:
             print("user: " + str(self.user_param))
+    
+    def debug_readable(self):
+        colors = [
+            "#E6194B",
+            "#3CB44B",
+            "#FFE119",
+            "#4364DB",
+            "#F58231",
+            "#911EB4",
+            "#42D4F4",
+            "#F032E6",
+            "#888888",
+            "#000000",
+            "#469990",
+        ]
+        func = self.func
+        if func != 0 and func != self.N - 1:
+            func_color = colors[func - 1]
+        prepare_color = colors[-3]
+        download_color = colors[-2]
+        user_color = colors[-1]
+        str_json = "{{\"row\": \"{}\", \"from\": {}, \"to\": {}, \"color\": \"{}\"}},"
+        if self.edge:
+            name = "edge_" + str(self.edge_param["id"]) + "_" + str(self.edge_param["core"])
+            name_download = "edge_" + str(self.edge_param["id"]) + "_d"
+            # download 
+            print(str_json.format(name_download, self.edge_param["t_download_start"], self.edge_param["t_download_end"], download_color))
+
+            # prepare
+            print(str_json.format(name, self.edge_param["t_prepare_start"], self.edge_param["t_prepare_end"], prepare_color))
+            
+            # exec
+            print(str_json.format(name, self.edge_param["t_execute_start"], self.edge_param["t_execute_end"], func_color))
+        if self.cloud:
+            print(str_json.format("cloud", self.cloud_param["start"], self.cloud_param["end"], func_color))
+        if self.user:
+            print(str_json.format("user", self.user_param["start"], self.user_param["end"]+1e-2, user_color))
