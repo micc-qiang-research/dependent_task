@@ -48,7 +48,7 @@ class Data:
     def read_dag(self, path):
         self.G = nx.DiGraph()
         data = pd.read_csv(path)
-        edges = [(int(s)-1,int(d)-1,{"weight": w}) for s,d,w in data.to_numpy()]
+        edges = [(int(s)-1,int(d)-1, w) for s,d,w in data.to_numpy()]
         self.G.add_weighted_edges_from(edges)
 
 
