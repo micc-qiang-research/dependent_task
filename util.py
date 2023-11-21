@@ -40,7 +40,7 @@ class PQueue:
         return self.queue.empty()
 
 def draw_dag(G):
-    pos = nx.nx_agraph.graphviz_layout(G)
+    pos = nx.nx_agraph.graphviz_layout(G, prog="dot")
     weights = nx.get_edge_attributes(G, "weight")
     weights = {e: weights[e]["weight"] for e in weights}
     nx.draw_networkx(G, pos, with_labels=True)
@@ -89,7 +89,7 @@ def output_gantt_json(bars, finish_time):
 
 def draw_gantt(file="gantt.json"):
     import json
-    from lib.ganttify import Ganttify
+    from lib.ganttify.ganttify import Ganttify
 
     json_obj = json.load(open(file))
 
