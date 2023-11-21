@@ -34,6 +34,7 @@ class EdgeServer:
     def __init__(self, idx, core):
         self.idx = idx
         self.cores = [Core(i) for i in range(core)]
+        self.download_complete = 0
 
     # 在某个核上查找任务最早开始时间
     def __core_ESTfind(self, t, t_prepare, t_execute, core):

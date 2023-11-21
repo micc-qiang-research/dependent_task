@@ -43,22 +43,22 @@ class SchedStrategy:
 
     def get_edge_start(self):
         if not self.edge:
-            assert False, "no edge deploy"
+            raise Exception("no edge deploy")
         return self.edge_param["t_execute_start"]
 
     def get_edge_end(self):
         if not self.edge:
-            assert False, "no edge deploy"
+            raise Exception("no edge deploy")
         return self.edge_param["t_execute_end"]
 
     def get_cloud_start(self):
         if not self.cloud:
-            assert False, "no cloud deploy"
+           raise Exception("no cloud deploy")
         return self.cloud_param["start"]
 
     def get_cloud_end(self):
         if not self.cloud:
-            assert False, "no cloud deploy"
+            raise Exception("no cloud deploy")
         return self.cloud_param["end"]
 
     def deploy_in_user(self, start, end):

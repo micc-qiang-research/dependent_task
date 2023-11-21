@@ -6,53 +6,16 @@ import numpy as np
 import portion as P
 from data import Data
 from util import *
-from cluster import EdgeServer
 from strategy import SchedStrategy
 from .scheduler import Scheduler
 
 class SDTS(Scheduler):
     def __init__(self, data):
-        self.data = data
+        super().__init__(data)
         self.G_ = nx.DiGraph()
         self.G_end = "end"
-        self.edge_server = [EdgeServer(i, 2) for i in range(self.data.K - 1)]
-        self.G = self.data.G
-        self.func_process = np.array(self.data.func_process) # 函数执行时间
-        self.edge_bandwith = np.array(self.data.edge_bandwidth) # 边缘服务器带宽 1..(k-1)
-        self.func_startup = np.array(self.data.func_startup) # 函数环境大小
-        self.func_edge_download = self.get_func_edge_download(self.func_startup, self.edge_bandwith) # 函数在各个边缘下载时间
-        self.func_prepare = np.array(self.data.func_prepare)
-        self.server_comm = np.array(self.data.server_comm) # 服务器之间的通信时间
-        self.ue_comm = np.array(self.data.ue_comm) # 用户<->edge
-        self.uc_comm = self.data.uc_comm # 用户<->cloud
-
-        self.t_server_download_complete = [0] * (self.data.K - 1) # edge server当前下载完成时间
-        self.N = self.data.N
-        self.K = self.data.K
-        self.source = 0
-        self.sink = self.N - 1
-        self.pos_user = 0
-        self.pos_edge = 1
-        self.pos_cloud = 2
-        self.is_scheduler = set() # 目前已经调度的节点
         
-        self.strategy = [SchedStrategy(i, self.data.N) for i in range(self.data.N)] # 任务放置的服务器、核、开始时间、结束时间
-
-    ########## deploy strategy 得到某个func的部署edge位置
-    # function strategy
-    def gs(self, func):
-        return self.strategy[func]
-
-    ###################################################
-
-    # 根据函数环境大小即边缘带宽，计算下载时间
-    def get_func_edge_download(self, func_startup, edge_bandwith):
-        return (np.tile(func_startup.reshape(len(func_startup), 1), (1, self.data.K-1)).T / edge_bandwith.reshape(-1,1)).T
-    
-    # 得到边的权重
-    def get_weight(self, s, d):
-        res = self.G.edges[s,d]["weight"]
-        return res
+        self.is_scheduler = set() # 目前已经调度的节点
 
     def priority(self, func_edge_download, server_comm, func_process):
         G = self.G
@@ -75,58 +38,6 @@ class SDTS(Scheduler):
         print(priority_dict)
         return priority_dict
 
-
-    def input_ready(self, func1, func2, pos1, pos2):
-        weight = self.get_weight(func1, func2)
-        match pos1:
-            case self.pos_user:
-                assert func1 == self.source, "error"
-                match pos2:
-                    case self.pos_user: # user -> user
-                        assert False, "error"
-                    case self.pos_cloud: # user -> cloud
-                        return self.uc_comm * weight
-                    case self.pos_edge: # user -> edge
-                        server = self.gs(func2).get_edge_id()
-                        return self.ue_comm[server] * weight
-            case self.pos_edge:
-                match pos2:
-                    case self.pos_user: # edge -> user
-                        assert func2 == self.sink, "error"
-                        server = self.gs(func1).get_edge_id()
-                        return self.gs(func1).get_edge_end() + self.ue_comm[server] * weight
-                    case self.pos_cloud: # edge -> cloud
-                        server = self.gs(func1).get_edge_id()
-                        return self.gs(func1).get_edge_end() + self.server_comm[server][self.K - 1] * weight
-                    case self.pos_edge: # edge -> edge
-                        s1 = self.gs(func1).get_edge_id()
-                        s2 = self.gs(func2).get_edge_id()
-                        return self.gs(func1).get_edge_end() + self.server_comm[s1][s2] * weight
-            case self.pos_cloud:
-                match pos2:
-                    case self.pos_user: # cloud -> user
-                        return self.gs(func1).get_cloud_end() + self.uc_comm * weight
-                    case self.pos_cloud: # cloud -> cloud
-                        return self.gs(func1).get_cloud_end()
-                    case self.pos_edge: # cloud -> edge
-                        server = self.gs(func2).get_edge_id()
-                        return self.gs(func1).get_cloud_end() + self.server_comm[server][self.K-1]
-            case _:
-                assert False, "input ready error"
-
-    def get_input_ready(self, func2, pos2):
-        res = 0
-        for i in self.G.predecessors(func2):
-            if i == self.source:
-                v = self.input_ready(i, func2, self.pos_user, pos2)
-            else:
-                v = min(
-                    self.input_ready(i, func2, self.pos_edge, pos2),
-                    self.input_ready(i, func2, self.pos_cloud, pos2),
-                )
-            res = max(v, res)
-        return res
-
     def edge_server_selection(self, func, func_edge_download, func_prepare, func_process):
         early_start_time = P.inf
         early_core = None
@@ -134,7 +45,7 @@ class SDTS(Scheduler):
         for idx, server in enumerate(self.edge_server):
             self.gs(func).deploy_in_edge(idx) # 尝试deploy
 
-            t_e = self.t_server_download_complete[idx] + func_edge_download[func][idx] + func_prepare[func] # 环境准备好时间
+            t_e = self.get_download_complete(idx) + func_edge_download[func][idx] + func_prepare[func] # 环境准备好时间
             
             # t_i = self.get_input_ready(idx, func) # 数据依赖准备好时间
             t_i = self.get_input_ready(func, self.pos_edge) # 数据依赖准备好时间
@@ -150,9 +61,9 @@ class SDTS(Scheduler):
 
         ### 选择 early_idx对应的server 作为目标server       
         # 更新server的下载完成时间
-        t_download_start = self.t_server_download_complete[early_idx]
-        t_download_finish = self.t_server_download_complete[early_idx] + func_edge_download[func][early_idx]
-        self.t_server_download_complete[early_idx] = t_download_finish
+        t_download_start = self.get_download_complete(early_idx)
+        t_download_finish = self.get_download_complete(early_idx) + func_edge_download[func][early_idx]
+        self.set_download_complete(early_idx, t_download_finish)
 
         # 将任务放置
         self.edge_server[early_idx].place(early_core, early_start_time - func_prepare[func], early_start_time + func_process[func][early_idx] )
