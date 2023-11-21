@@ -12,16 +12,18 @@ class HEFT(Scheduler):
         # 每个核作为一个proc，需要改写server_comm矩阵，假设每个edge server有两个核，cloud有|func|个核，即不限数量
         # TODO. 自定义核的数量
         self.func_number = self.N
-        self.proc_number = (self.server_comm.shape[0] - 1) * 2 + self.func_number
+        self.cores = np.array(self.data.cores, dtype=int)
+        self.proc_number = np.sum(self.cores) + self.func_number
+        # self.proc_number = (self.server_comm.shape[0] - 1) * 2 + self.func_number
 
         self.func_process = self.extend_process()
         self.server_comm = self.extend_comm()
 
     def extend(self, comm, n):
         res = []
-        for i in comm[:-1]:
-            res.append(i)
-            res.append(i)
+        for idx, com in enumerate(comm[:-1]):
+            for core in range(self.cores[idx]):
+                res.append(com)
         for i in range(n):
             res.append(comm[-1])
         return res
@@ -38,10 +40,10 @@ class HEFT(Scheduler):
 
     def extend_comm(self):
         server_comm = []
-        for comm in self.server_comm[:-1]:
+        for idx,comm in enumerate(self.server_comm[:-1]):
             row = self.extend(comm, self.func_number)
-            server_comm.append(row)
-            server_comm.append(row)
+            for core in range(self.cores[idx]):
+                server_comm.append(row)
         row = self.extend(self.server_comm[-1], self.func_number)
         for i in range(self.func_number):
             server_comm.append(row)

@@ -60,6 +60,11 @@ class Data:
         self.edge_bandwidth = []
         for i in range(self.K-1):
             self.edge_bandwidth.append(data.get(float))
+
+        # TODO. 每台server的核数先写死为2
+        self.cores = []
+        for i in range(self.K-1):
+            self.cores.append(1)
         
         self.func_startup = []
         for i in range(self.N):

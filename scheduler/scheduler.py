@@ -26,7 +26,7 @@ class Scheduler(metaclass=ABCMeta):
 
         self.strategy = [SchedStrategy(i, self.data.N) for i in range(self.data.N)] # 任务放置的服务器、核、开始时间、结束时间
 
-        self.cluster = Cluster(self.data.K - 1)
+        self.cluster = Cluster(self.data.cores)
 
         self.pos_user = 0
         self.pos_edge = 1

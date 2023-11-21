@@ -68,14 +68,15 @@ class EdgeServer:
 
 
 class Cluster:
-    def __init__(self, edge_server_number):
-        self.K = edge_server_number
-        self.edge_server = [EdgeServer(i, 2) for i in range(self.K)]
+    def __init__(self, cores):
+        self.K = len(cores)
+        self.cores = cores
+        self.edge_server = [EdgeServer(i, cores[i]) for i in range(self.K)]
 
         self.server_name = []
         for i in range(self.K):
             self.server_name.append(f"edge_{i}_d")
-            for j in range(2):
+            for j in range(cores[i]):
                 self.server_name.append(f"edge_{i}_{j}")
         
 
