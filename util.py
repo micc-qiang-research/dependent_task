@@ -59,7 +59,7 @@ def output_gantt_json(bars, finish_time):
 
     rows = """
         "user", "cloud", 
-           "edge_0_d", "edge_0_0", "edge_0_0", 
+           "edge_0_d", "edge_0_0", "edge_0_1", 
            "edge_1_d", "edge_1_0", "edge_1_1",
            "edge_2_d", "edge_2_0", "edge_2_1"
     """

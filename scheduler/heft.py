@@ -3,6 +3,7 @@ from heft import heft, gantt
 import numpy as np
 from strategy import SchedStrategy
 import networkx as nx
+from util import *
 
 class HEFT(Scheduler):
     def __init__(self, data):
@@ -96,6 +97,7 @@ class HEFT(Scheduler):
 
                 t_download_start = self.get_download_complete(server_id)
                 t_download_end = t_download_start + self.func_edge_download[func][server_id]
+                self.set_download_complete(server_id, t_download_end)
 
                 t_prepare_start = t_execute_start - self.func_prepare[func]
                 t_prepare_end = t_execute_start
@@ -118,5 +120,10 @@ class HEFT(Scheduler):
                             computation_matrix=self.func_process,communication_startup=np.zeros(self.server_comm.shape[0]))
         # gantt.showGanttChart(sched)
         self.trans_to_strategy(task_sched)
+        # for s in self.strategy:
+        #     s.debug()
+        bars = ""
         for s in self.strategy:
-            s.debug()
+            bars = bars + s.debug_readable() + "\n"
+        output_gantt_json(bars[:-2], self.gs(self.sink).get_user_end())
+        draw_gantt()
