@@ -42,10 +42,10 @@ class SDTS(Scheduler):
         early_start_time = P.inf
         early_core = None
         early_idx = -1
-        for idx, server in enumerate(self.edge_server):
+        for idx, server in enumerate(self.cluster.get_edge_server()):
             self.gs(func).deploy_in_edge(idx) # 尝试deploy
 
-            t_e = self.get_download_complete(idx) + func_edge_download[func][idx] + func_prepare[func] # 环境准备好时间
+            t_e = self.cluster.get_download_complete(idx) + func_edge_download[func][idx] + func_prepare[func] # 环境准备好时间
             
             # t_i = self.get_input_ready(idx, func) # 数据依赖准备好时间
             t_i = self.get_input_ready(func, self.pos_edge) # 数据依赖准备好时间
@@ -61,12 +61,12 @@ class SDTS(Scheduler):
 
         ### 选择 early_idx对应的server 作为目标server       
         # 更新server的下载完成时间
-        t_download_start = self.get_download_complete(early_idx)
-        t_download_finish = self.get_download_complete(early_idx) + func_edge_download[func][early_idx]
-        self.set_download_complete(early_idx, t_download_finish)
+        t_download_start = self.cluster.get_download_complete(early_idx)
+        t_download_finish = self.cluster.get_download_complete(early_idx) + func_edge_download[func][early_idx]
+        self.cluster.set_download_complete(early_idx, t_download_finish)
 
         # 将任务放置
-        self.edge_server[early_idx].place(early_core, early_start_time - func_prepare[func], early_start_time + func_process[func][early_idx] )
+        self.cluster.place(early_idx, early_core, early_start_time - func_prepare[func], early_start_time + func_process[func][early_idx])
         
         # 记录调度策略，策略记录的开始时间是开始执行时间，不包括准备时间
         self.strategy[func].deploy_in_edge(early_idx, early_core.idx, \
@@ -139,7 +139,7 @@ class SDTS(Scheduler):
                 else:
                     self.gs(node).clear_edge_deploy()
                     edge_parms = self.gs(node).edge_param
-                    self.edge_server[edge_parms["id"]].release(edge_parms["core"], edge_parms["t_prepare_start"] , edge_parms["t_execute_end"])
+                    self.cluster.release(edge_parms["id"], edge_parms["core"], edge_parms["t_prepare_start"] , edge_parms["t_execute_end"])
 
 
     def schedule(self):
@@ -188,9 +188,5 @@ class SDTS(Scheduler):
             self.is_scheduler.add(v)
             self.task_refinement(self.G_, self.G, v)
 
-        bars = ""
-        for s in self.strategy:
-            bars = bars + s.debug_readable()
-        output_gantt_json(bars[:-1], self.gs(self.sink).get_user_end())
-        draw_gantt()
+        self.showGantt("sdts")
         # draw_dag(self.G_)

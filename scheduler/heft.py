@@ -83,7 +83,7 @@ class HEFT(Scheduler):
                 server_id = self.get_server(proc)
 
                 # 环境准备好时间
-                t_e = self.get_download_complete(server_id) + self.func_edge_download[func][server_id] + self.func_prepare[func]
+                t_e = self.cluster.get_download_complete(server_id) + self.func_edge_download[func][server_id] + self.func_prepare[func]
                 
                 # 数据依赖准备好时间
                 self.gs(func).deploy_in_edge(server_id) # 模拟
@@ -95,9 +95,9 @@ class HEFT(Scheduler):
                 # 得到其他的衍生信息
                 t_execute_end = t_execute_start + self.func_process[func][server_id]
 
-                t_download_start = self.get_download_complete(server_id)
+                t_download_start = self.cluster.get_download_complete(server_id)
                 t_download_end = t_download_start + self.func_edge_download[func][server_id]
-                self.set_download_complete(server_id, t_download_end)
+                self.cluster.set_download_complete(server_id, t_download_end)
 
                 t_prepare_start = t_execute_start - self.func_prepare[func]
                 t_prepare_end = t_execute_start
@@ -122,8 +122,4 @@ class HEFT(Scheduler):
         self.trans_to_strategy(task_sched)
         # for s in self.strategy:
         #     s.debug()
-        bars = ""
-        for s in self.strategy:
-            bars = bars + s.debug_readable() + "\n"
-        output_gantt_json(bars[:-2], self.gs(self.sink).get_user_end())
-        draw_gantt()
+        self.showGantt("heft")

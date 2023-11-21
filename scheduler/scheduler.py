@@ -1,8 +1,9 @@
 from abc import abstractmethod, ABCMeta
 import numpy as np
 from strategy import SchedStrategy
-from cluster import EdgeServer
+from cluster import Cluster
 import math
+from util import *
 
 class Scheduler(metaclass=ABCMeta):
 
@@ -25,7 +26,7 @@ class Scheduler(metaclass=ABCMeta):
 
         self.strategy = [SchedStrategy(i, self.data.N) for i in range(self.data.N)] # 任务放置的服务器、核、开始时间、结束时间
 
-        self.edge_server = [EdgeServer(i, 2) for i in range(self.data.K - 1)]
+        self.cluster = Cluster(self.data.K - 1)
 
         self.pos_user = 0
         self.pos_edge = 1
@@ -42,12 +43,6 @@ class Scheduler(metaclass=ABCMeta):
     def get_weight(self, s, d):
         res = self.G.edges[s,d]["weight"]
         return res
-
-    def get_download_complete(self, server_id):
-        return self.edge_server[server_id].download_complete
-
-    def set_download_complete(self, server_id, value):
-        self.edge_server[server_id].download_complete = value
 
     # 根据函数环境大小即边缘带宽，计算下载时间
     def get_func_edge_download(self, func_startup, edge_bandwith):
@@ -120,3 +115,10 @@ class Scheduler(metaclass=ABCMeta):
     @abstractmethod
     def schedule(self):
         pass
+
+    def showGantt(self, name):
+        bars = ""
+        for s in self.strategy:
+            bars = bars + s.debug_readable(self.cluster)
+        output_gantt_json(name, self.cluster.get_names(), bars[:-1], self.gs(self.sink).get_user_end())
+        draw_gantt()

@@ -47,7 +47,7 @@ def draw_dag(G):
     nx.draw_networkx_edge_labels(G, pos, edge_labels=weights)
     plt.show()
 
-def output_gantt_json(bars, finish_time):
+def output_gantt_json(name, rows, bars, finish_time):
 
     legend = ""
     legend_str = "{{\"color\": \"{}\", \"text\": \"{}\"}},"
@@ -57,16 +57,16 @@ def output_gantt_json(bars, finish_time):
     legend = legend + legend_str.format(download_color, "Download")
     legend = legend + legend_str.format(user_color, "User")[:-1]
 
-    rows = """
-        "user", "cloud", 
-           "edge_0_d", "edge_0_0", "edge_0_1", 
-           "edge_1_d", "edge_1_0", "edge_1_1",
-           "edge_2_d", "edge_2_0", "edge_2_1"
-    """
+    json_rows = ["user"]
+    json_rows.extend(rows)
+    rows = ""
+    for c in json_rows:
+        rows = rows + "\"{}\",".format(c)
+    rows = rows[:-1]
 
     template = """
 {{
-    "title": "Scheduler - Gantta Pic",
+    "title": "{}",
     "label": "Time",
     "legend": [
         {}
@@ -84,7 +84,7 @@ def output_gantt_json(bars, finish_time):
     """
 
     with open("gantt.json", "w") as f:
-        f.write(template.format(legend, rows, bars, finish_time))
+        f.write(template.format(name, legend, rows, bars, finish_time))
 
 
 def draw_gantt(file="gantt.json"):

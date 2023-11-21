@@ -1,3 +1,5 @@
+from cluster import Core
+
 class SchedStrategy:
     def __init__(self, func, N):
         self.edge = False
@@ -85,7 +87,7 @@ class SchedStrategy:
         if self.user:
             print("user: " + str(self.user_param))
     
-    def debug_readable(self):
+    def debug_readable(self, cluster):
         from util import colors, prepare_color, download_color, user_color
         func = self.func
         if func != 0 and func != self.N - 1:
@@ -105,7 +107,9 @@ class SchedStrategy:
             # exec
             bars = bars + str_json.format(name, self.edge_param["t_execute_start"], self.edge_param["t_execute_end"], func_color)
         if self.cloud:
-            bars = bars + str_json.format("cloud", self.cloud_param["start"], self.cloud_param["end"], func_color)
+            name = cluster.get_cloud_core_name(self.cloud_param["start"], self.cloud_param["end"])
+
+            bars = bars + str_json.format(name, self.cloud_param["start"], self.cloud_param["end"], func_color)
         if self.user:
             bars = bars + str_json.format("user", self.user_param["start"], self.user_param["end"]+1e-2, user_color)
         
