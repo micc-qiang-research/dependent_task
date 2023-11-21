@@ -7,6 +7,6 @@ from scheduler.scheduler import Scheduler
 if __name__ == '__main__':
     data = Data("./data/data_2.txt")
     # draw_dag(data.G)
-    scheduler :Scheduler = SDTS(data)
-    # scheduler :Scheduler = HEFT(data)
+    # scheduler :Scheduler = SDTS(data)
+    scheduler :Scheduler = HEFT(data)
     scheduler.schedule()
