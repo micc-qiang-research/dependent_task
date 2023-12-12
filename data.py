@@ -64,7 +64,7 @@ class Data:
         # TODO. 每台server的核数先写死为2
         self.cores = []
         for i in range(self.K-1):
-            self.cores.append(1)
+            self.cores.append(2)
         
         self.func_startup = []
         for i in range(self.N):

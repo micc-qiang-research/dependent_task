@@ -41,8 +41,9 @@ class PQueue:
 
 def draw_dag(G):
     pos = nx.nx_agraph.graphviz_layout(G, prog="dot")
+    # pos = nx.nx_agraph.graphviz_layout(G)
     weights = nx.get_edge_attributes(G, "weight")
-    weights = {e: weights[e]["weight"] for e in weights}
+    # weights = {e: weights[e]["weight"] for e in weights}
     nx.draw_networkx(G, pos, with_labels=True)
     nx.draw_networkx_edge_labels(G, pos, edge_labels=weights)
     plt.show()
