@@ -9,8 +9,8 @@ from types import SimpleNamespace
 
 def parse():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d","--data", type=str, default="./data/data_2.txt")
-    parser.add_argument("-s","--scheduler", type=str, choices=['SDTS','HEFT'], default="SDTS")
+    parser.add_argument("-d","--data", type=str, default="./data/cluster/data_2.txt", help="specify data file")
+    parser.add_argument("-s","--scheduler", type=str, choices=['SDTS','HEFT'], default="SDTS", help="specify scheduler type")
     args = parser.parse_args()
     return {
         "data": args.data,
