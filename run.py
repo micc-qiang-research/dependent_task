@@ -12,8 +12,8 @@ from types import SimpleNamespace
 
 def parse():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d","--data", type=str, default="./data/cluster/data_2.txt", help="specify data file")
-    # parser.add_argument("-d","--data", type=str, default="./data/task/application_csv/app_1.csv", help="specify data file")
+    # parser.add_argument("-d","--data", type=str, default="./data/cluster/data_2.txt", help="specify data file")
+    parser.add_argument("-d","--data", type=str, default="./data/task/application_csv/app_3.csv", help="specify data file")
     parser.add_argument("-s","--scheduler", type=str, choices=['SDTS','HEFT'], default="SDTS", help="specify scheduler type")
     args = parser.parse_args()
     return {
@@ -26,8 +26,8 @@ if __name__ == '__main__':
     print("data file : ", config.data)
     print("scheduler: ", config.scheduler)
     # try:
-    data : Data = DataByTxt(config.data)
-    # data : Data = DataByCsv(config.data)
+    # data : Data = DataByTxt(config.data)
+    data : Data = DataByCsv(config.data)
     # data : Data = DataByJson(config.data)
     draw_dag(data.G)
     scheduler :Scheduler = eval(config.scheduler)(data)

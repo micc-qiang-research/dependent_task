@@ -8,7 +8,7 @@ class Core:
 
     def occupy(self, start, end):
         start = round(start, 2)
-        end = round(end, 2)+0.01
+        end = round(end+0.01, 2)
         i = P.closedopen(start, end)
         if not self.interval.contains(i):
             print(self.interval)
@@ -19,7 +19,7 @@ class Core:
     
     def release(self, start, end):
         start = round(start, 2)
-        end = round(end, 2)+0.01
+        end = round(end+0.01, 2)
         i = P.closedopen(start, end)
         if not (self.interval & i).empty:
             assert False, "release error" # 释放的是已经占据的
@@ -45,7 +45,7 @@ class EdgeServer:
         self.download_complete = 0
 
     # 在某个核上查找任务最早开始时间
-    def __core_ESTfind(self, t, t_prepare, t_execute, core):
+    def ESTfindByCore(self, t, t_prepare, t_execute, core):
         for i in core:
             if i.upper >= t_execute + max(t, i.lower + t_prepare):
                 return max(t, i.lower+t_prepare)
@@ -55,11 +55,15 @@ class EdgeServer:
         start_time = P.inf
         early_core = None
         for core in self.cores:
-            res = self.__core_ESTfind(t, t_prepare, t_execute, core)
+            res = self.ESTfindByCore(t, t_prepare, t_execute, core)
             if res < start_time:
                 start_time = res
                 early_core = core
         return early_core, start_time
+
+    def get_cores(self, core_id):
+        return self.cores[core_id]
+
 
     def place(self, core, start, end):
         idx = core.idx
@@ -98,6 +102,12 @@ class Cluster:
 
     def release(self, server_id, core, start, end):
         self.edge_server[server_id].release(core, start, end)
+
+    def get_core_EST(self, server_id, core_id, t_prepare, t_execute, t):
+        return self.edge_server[server_id].ESTfindByCore(t, t_prepare, t_execute, self.get_edge_server_core(server_id, core_id))
+
+    def get_edge_server_core(self, server_id, core_id):
+        return self.edge_server[server_id].get_cores(core_id)
 
     def get_cloud_core_name(self, start, end):
         if not hasattr(self, "cloud_core_number"):

@@ -91,7 +91,10 @@ class SchedStrategy:
         from util import colors, prepare_color, download_color, user_color
         func = self.func
         if func != 0 and func != self.N - 1:
-            func_color = colors[func - 1]
+            if func - 1 >= len(colors)-3:
+                assert False, "too many function"
+            else:
+                func_color = colors[func - 1]
         bars = ""
 
         str_json = "{{\"row\": \"{}\", \"from\": {}, \"to\": {}, \"color\": \"{}\"}},"
