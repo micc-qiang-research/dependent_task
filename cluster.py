@@ -1,12 +1,14 @@
 import portion as P
 
-
+# 按至少0.01的粒度occupy，否则会有数值问题
 class Core:
     def __init__(self, idx):
         self.idx = idx
         self.interval = P.closedopen(0, P.inf)
 
     def occupy(self, start, end):
+        start = round(start, 2)
+        end = round(end, 2)+0.01
         i = P.closedopen(start, end)
         if not self.interval.contains(i):
             print(self.interval)
@@ -16,6 +18,8 @@ class Core:
         self.interval = self.interval - P.closedopen(start, end)
     
     def release(self, start, end):
+        start = round(start, 2)
+        end = round(end, 2)+0.01
         i = P.closedopen(start, end)
         if not (self.interval & i).empty:
             assert False, "release error" # 释放的是已经占据的

@@ -4,7 +4,7 @@ import pandas as pd
 import os
 import numpy as np
 import portion as P
-from data import Data
+from dataloader.data import Data
 from util import *
 from strategy import SchedStrategy
 from .scheduler import Scheduler

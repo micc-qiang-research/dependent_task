@@ -2,6 +2,7 @@ import networkx as nx
 import pandas as pd
 import numpy as np
 import os
+from .data import Data
 
 # 读取txt，每次返回一个值
 class TxtReader:
@@ -40,7 +41,8 @@ class DataSource:
             raise "type error"
 
 
-class Data:
+class DataByTxt(Data):
+    @Data.check()
     def __init__(self, path):
         self.path = path
         self.acquire_data(path)
