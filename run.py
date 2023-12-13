@@ -1,36 +1,53 @@
 
-from dataloader.data import Data
-from dataloader.dataByTxt import DataByTxt
-from dataloader.dataByCsv import DataByCsv
-from dataloader.dataByJson import DataByJson
-from scheduler.sdts import SDTS
-from scheduler.heft import HEFT
-from scheduler.scheduler import Scheduler
+from dataloader import *
+from scheduler import *
 from util import *
 import argparse
 from types import SimpleNamespace
+import os
 
 def parse():
     parser = argparse.ArgumentParser()
     # parser.add_argument("-d","--data", type=str, default="./data/cluster/data_2.txt", help="specify data file")
     parser.add_argument("-d","--data", type=str, default="./data/task/application_csv/app_3.csv", help="specify data file")
     parser.add_argument("-s","--scheduler", type=str, choices=['SDTS','HEFT'], default="SDTS", help="specify scheduler type")
+    parser.add_argument("-g","--gantta", action="store_true", help="show gantta or not")
+    parser.add_argument("--dag", action="store_true", help="show dag or not")
     args = parser.parse_args()
     return {
         "data": args.data,
-        "scheduler": args.scheduler
+        "scheduler": args.scheduler,
+        "gantta": args.gantta,
+        "dag": args.dag,
     }
+
+def getFileType(file):
+    return file.split('.')[-1]
+
+
+def getFileLoader(filetype):
+    match(filetype):
+        case "txt":
+            return DataByTxt
+        case "csv":
+            return DataByCsv
+        case "json":
+            return DataByJson
+        case _:
+            assert False, "unsupport file type"
+    
 
 if __name__ == '__main__':
     config = SimpleNamespace(**parse())
-    print("data file : ", config.data)
+    filetype = getFileType(config.data)
+    print("data file: ", config.data)
+    print("data type: ", filetype)
     print("scheduler: ", config.scheduler)
     # try:
-    # data : Data = DataByTxt(config.data)
-    data : Data = DataByCsv(config.data)
-    # data : Data = DataByJson(config.data)
-    draw_dag(data.G)
-    scheduler :Scheduler = eval(config.scheduler)(data)
+    data : Data = getFileLoader(filetype)(config.data)
+    if config.dag:
+        draw_dag(data.G)
+    scheduler :Scheduler = eval(config.scheduler)(data,config)
     scheduler.schedule()
     # except Exception as e:
     #     print(e)

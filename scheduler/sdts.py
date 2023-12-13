@@ -10,8 +10,8 @@ from strategy import SchedStrategy
 from .scheduler import Scheduler
 
 class SDTS(Scheduler):
-    def __init__(self, data):
-        super().__init__(data)
+    def __init__(self, data, config):
+        super().__init__(data, config)
         self.G_ = nx.DiGraph()
         self.G_end = "end"
         
@@ -188,5 +188,5 @@ class SDTS(Scheduler):
             self.is_scheduler.add(v)
             self.task_refinement(self.G_, self.G, v)
 
-        self.showGantt("sdts")
         # draw_dag(self.G_)
+        self.show_result("sdts")

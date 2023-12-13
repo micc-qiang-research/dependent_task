@@ -7,8 +7,9 @@ from util import *
 
 class Scheduler(metaclass=ABCMeta):
 
-    def __init__(self,data):
+    def __init__(self,data,config):
         self.data = data
+        self.config = config
         self.G = self.data.G
         self.func_process = np.array(self.data.func_process) # 函数执行时间
         self.edge_bandwith = np.array(self.data.edge_bandwidth) # 边缘服务器带宽 1..(k-1)
@@ -122,3 +123,11 @@ class Scheduler(metaclass=ABCMeta):
             bars = bars + s.debug_readable(self.cluster)
         output_gantt_json(name, self.cluster.get_names(), bars[:-1], self.gs(self.sink).get_user_end())
         draw_gantt()
+
+    def get_total_time(self):
+        return self.gs(self.sink).get_user_end()
+
+    def show_result(self, name):
+        print("total time: {:.2f}".format(self.get_total_time()))
+        if self.config.gantta:
+            self.showGantt(name)

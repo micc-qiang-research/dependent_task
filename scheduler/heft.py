@@ -6,8 +6,8 @@ import networkx as nx
 from util import *
 
 class HEFT(Scheduler):
-    def __init__(self, data):
-        super().__init__(data)
+    def __init__(self, data,config):
+        super().__init__(data, config)
 
         # 每个核作为一个proc，需要改写server_comm矩阵，假设每个edge server有两个核，cloud有|func|个核，即不限数量
         # TODO. 自定义核的数量
@@ -141,4 +141,4 @@ class HEFT(Scheduler):
         self.trans_to_strategy(task_sched)
         # for s in self.strategy:
         #     s.debug()
-        self.showGantt("heft")
+        self.show_result("heft")
