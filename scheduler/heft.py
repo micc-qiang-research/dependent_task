@@ -80,65 +80,24 @@ class HEFT(Scheduler):
     def is_deploy_in_cloud(self, core_id):
         return core_id >= self.proc_number - self.func_number
 
-    def trans_to_strategy(self, task_sched):
-        vertices = list(nx.topological_sort(self.G))
-        for func in vertices:
-            print(task_sched[func])
-            proc = task_sched[func].proc
-
-            if func == self.source:
-                self.gs(func).deploy_in_user(0, 0)
-            elif func == self.sink:
-                t_i = self.get_input_ready(func, self.pos_user, False)
-                self.gs(func).deploy_in_user(t_i, t_i)
-            elif self.is_deploy_in_cloud(proc):
-                server_id = self.get_server(proc)
-                t_start = self.get_input_ready(func, self.pos_cloud, False)
-                t_end = t_start + self.func_process[func][server_id]
-                self.gs(func).deploy_in_cloud(t_start, t_end)
-            else:
-                server_id = self.get_server(proc)
-                core_id = self.get_core(task_sched[func].proc)
-
-                # 环境准备好时间
-                t_e = self.cluster.get_download_complete(server_id) + self.func_edge_download[func][server_id] + self.func_prepare[func]
-                
-                # 数据依赖准备好时间
-                self.gs(func).deploy_in_edge(server_id) # 模拟
-                t_i = self.get_input_ready(func, self.pos_edge, False)
-
-                t = max(t_e, t_i)
-                # 函数开始执行时间
-                t_execute_start = self.cluster.get_core_EST(server_id, core_id, self.func_prepare[func], self.func_process[func][server_id],t)
-
-                # 得到其他的衍生信息
-                t_execute_end = t_execute_start + self.func_process[func][server_id]
-
-                t_download_start = self.cluster.get_download_complete(server_id)
-                t_download_end = t_download_start + self.func_edge_download[func][server_id]
-                self.cluster.set_download_complete(server_id, t_download_end)
-
-                t_prepare_start = t_execute_start - self.func_prepare[func]
-                t_prepare_end = t_execute_start
-
-                self.strategy[func].deploy_in_edge(server_id, core_id, \
-                    t_download_start=t_download_start, \
-                    t_download_end=t_download_end, \
-                    t_prepare_start=t_prepare_start, \
-                    t_prepare_end=t_prepare_end,\
-                    t_execute_start=t_execute_start, \
-                    t_execute_end=t_execute_end)
-                self.cluster.place(server_id, self.cluster.get_edge_server_core(server_id, core_id), t_prepare_start, t_execute_end)
-
-
-
+    def trans_strategy(self, sched):
+        strategy = [[] for i in range(self.proc_number)]
+        for server in sched:
+            for scheduler in sched[server]:
+                task = scheduler.task
+                proc = scheduler.proc
+                strategy[proc].append(task)
+        super().trans_strategy(strategy)
 
     def schedule(self):
         sched, task_sched, _ = heft.schedule_dag(self.G, 
                             communication_matrix=self.server_comm, 
                             computation_matrix=self.total_process,communication_startup=np.zeros(self.server_comm.shape[0]))
+        # print(sched, task_sched)
+        self.trans_strategy(sched)
+
         # gantt.showGanttChart(sched)
-        self.trans_to_strategy(task_sched)
+        # self.trans_to_strategy(task_sched)
         # for s in self.strategy:
         #     s.debug()
         self.show_result("heft")

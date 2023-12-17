@@ -86,6 +86,16 @@ class Cluster:
             self.server_name.append(f"edge_{i}_d")
             for j in range(cores[i]):
                 self.server_name.append(f"edge_{i}_{j}")
+
+    def get_core_number(self):
+        return sum(self.cores)
+    
+    def get_server_by_core_id(self, core_id):
+        for i, core in enumerate(self.cores):
+            if core_id < core:
+                return i, core_id
+            core_id -= core
+        assert False, "core_id is too big"
         
 
     def get_edge_server(self):

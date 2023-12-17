@@ -156,6 +156,86 @@ class Scheduler(metaclass=ABCMeta):
                 )
             res = max(v, res)
         return res
+    
+    '''
+    将调度算法策略转换为本项目策略
+    通用的算法策略用一个二维数组表示
+    strategy[K] = [
+          [0,1,5],
+          [2,4,3],
+           ...
+    ]
+    其中strategy[k][i]表示第i个core的第j个任务
+    core的编号顺序为: 
+        server0.core0  server0.core1 ...
+        server1.core0  server1.core1 ...
+        ...
+        cloud
+    '''    
+    def trans_strategy(self, strategy):
+        assert len(strategy) >= self.cluster.get_core_number(), "strategy length don't match core number"
+        def get_a_func():
+            finished_func = set()
+            all_func = set(self.G.nodes())
+            pos = [0 for i in range(len(strategy))]
+            while True:
+                # 所有节点都遍历过
+                if len(all_func ^ finished_func) == 0: break
+                for i,s in enumerate(strategy):
+                    if pos[i] >= len(s):
+                        continue
+                    for j in range(pos[i], len(s)):
+                        if set(self.G.predecessors(s[j])).issubset(finished_func):
+                            pos[i] = j + 1
+                            finished_func.add(s[j])
+                            yield s[j],i
+
+        for func,proc in get_a_func():
+
+            if func == self.source:
+                self.gs(func).deploy_in_user(0, 0)
+            elif func == self.sink:
+                t_i = self.get_input_ready(func, self.pos_user, False)
+                self.gs(func).deploy_in_user(t_i, t_i)
+            elif proc >= self.cluster.get_core_number():
+                server_id = self.get_server(proc)
+                t_start = self.get_input_ready(func, self.pos_cloud, False)
+                t_end = t_start + self.func_process[func][server_id]
+                self.gs(func).deploy_in_cloud(t_start, t_end)
+            else:
+                server_id, core_id = self.cluster.get_server_by_core_id(proc)
+
+                # 环境准备好时间
+                t_e = self.cluster.get_download_complete(server_id) + self.func_edge_download[func][server_id] + self.func_prepare[func]
+                
+                # 数据依赖准备好时间
+                self.gs(func).deploy_in_edge(server_id) # 模拟
+                t_i = self.get_input_ready(func, self.pos_edge, False)
+
+                t = max(t_e, t_i)
+                # 函数开始执行时间
+                t_execute_start = self.cluster.get_core_EST(server_id, core_id, self.func_prepare[func], self.func_process[func][server_id],t)
+
+                # 得到其他的衍生信息
+                t_execute_end = t_execute_start + self.func_process[func][server_id]
+
+                t_download_start = self.cluster.get_download_complete(server_id)
+                t_download_end = t_download_start + self.func_edge_download[func][server_id]
+                self.cluster.set_download_complete(server_id, t_download_end)
+
+                t_prepare_start = t_execute_start - self.func_prepare[func]
+                t_prepare_end = t_execute_start
+
+                self.strategy[func].deploy_in_edge(server_id, core_id, \
+                    t_download_start=t_download_start, \
+                    t_download_end=t_download_end, \
+                    t_prepare_start=t_prepare_start, \
+                    t_prepare_end=t_prepare_end,\
+                    t_execute_start=t_execute_start, \
+                    t_execute_end=t_execute_end)
+                self.cluster.place(server_id, self.cluster.get_edge_server_core(server_id, core_id), t_prepare_start, t_execute_end)
+        
+
 
     @abstractmethod
     def schedule(self):
