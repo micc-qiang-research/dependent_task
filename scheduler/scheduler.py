@@ -171,26 +171,43 @@ class Scheduler(metaclass=ABCMeta):
         server1.core0  server1.core1 ...
         ...
         cloud
-    '''    
-    def trans_strategy(self, strategy):
-        assert len(strategy) >= self.cluster.get_core_number(), "strategy length don't match core number"
-        def get_a_func():
-            finished_func = set()
-            all_func = set(self.G.nodes())
-            pos = [0 for i in range(len(strategy))]
-            while True:
-                # 所有节点都遍历过
-                if len(all_func ^ finished_func) == 0: break
-                for i,s in enumerate(strategy):
-                    if pos[i] >= len(s):
-                        continue
-                    for j in range(pos[i], len(s)):
-                        if set(self.G.predecessors(s[j])).issubset(finished_func):
-                            pos[i] = j + 1
-                            finished_func.add(s[j])
-                            yield s[j],i
+    返回:
+        (func, proc)元组
+    '''
 
-        for func,proc in get_a_func():
+    # 按核顺序来返回函数
+    def dumb_gen_strategy(self, raw_strategy):
+        assert len(raw_strategy) >= self.cluster.get_core_number(), "strategy length don't match core number"
+        finished_func = set()
+        all_func = set(self.G.nodes())
+        pos = [0 for i in range(len(raw_strategy))]
+        while True:
+            # 所有节点都遍历过
+            if len(all_func ^ finished_func) == 0: break
+            for i,s in enumerate(raw_strategy):
+                if pos[i] >= len(s):
+                    continue
+                for j in range(pos[i], len(s)):
+                    if set(self.G.predecessors(s[j])).issubset(finished_func):
+                        pos[i] = j + 1
+                        finished_func.add(s[j])
+                        yield s[j],i
+    
+    # 按拓扑排序返回函数
+    def topology_gen_strategy(self, raw_strategy):
+        def find_pos(func):
+            for i,s in enumerate(raw_strategy):
+                if func in s:
+                    return i
+            assert False, "not found"
+        func = list(nx.topological_sort(self.G))
+        for f in func:
+            yield f,find_pos(f)
+    
+    def trans_strategy(self, strategy):
+        
+
+        for func,proc in strategy:
 
             if func == self.source:
                 self.gs(func).deploy_in_user(0, 0)
@@ -234,8 +251,6 @@ class Scheduler(metaclass=ABCMeta):
                     t_execute_start=t_execute_start, \
                     t_execute_end=t_execute_end)
                 self.cluster.place(server_id, self.cluster.get_edge_server_core(server_id, core_id), t_prepare_start, t_execute_end)
-        
-
 
     @abstractmethod
     def schedule(self):

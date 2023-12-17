@@ -81,13 +81,13 @@ class HEFT(Scheduler):
         return core_id >= self.proc_number - self.func_number
 
     def trans_strategy(self, sched):
-        strategy = [[] for i in range(self.proc_number)]
+        raw_strategy = [[] for i in range(self.proc_number)]
         for server in sched:
             for scheduler in sched[server]:
                 task = scheduler.task
                 proc = scheduler.proc
-                strategy[proc].append(task)
-        super().trans_strategy(strategy)
+                raw_strategy[proc].append(task)
+        super().trans_strategy(self.topology_gen_strategy(raw_strategy))
 
     def schedule(self):
         sched, task_sched, _ = heft.schedule_dag(self.G, 
