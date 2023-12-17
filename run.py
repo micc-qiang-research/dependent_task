@@ -10,7 +10,7 @@ def parse():
     parser = argparse.ArgumentParser()
     # parser.add_argument("-d","--data", type=str, default="./data/cluster/data_2.txt", help="specify data file")
     parser.add_argument("-d","--data", type=str, default="./data/task/application_csv/app_3.csv", help="specify data file")
-    parser.add_argument("-s","--scheduler", type=str, choices=['SDTS','HEFT'], default="SDTS", help="specify scheduler type")
+    parser.add_argument("-s","--scheduler", type=str, choices=['SDTS','HEFT','GenDoc'], default="SDTS", help="specify scheduler type")
     parser.add_argument("-g","--gantta", action="store_true", help="show gantta or not")
     parser.add_argument("--dag", action="store_true", help="show dag or not")
     args = parser.parse_args()

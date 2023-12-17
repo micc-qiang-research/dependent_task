@@ -50,6 +50,50 @@ class Scheduler(metaclass=ABCMeta):
         return (np.tile(func_startup.reshape(len(func_startup), 1), (1, self.data.K-1)).T / edge_bandwith.reshape(-1,1)).T
 
 
+    # 获取s1和s2之间的带宽，若s为-1，则代表user
+    def get_comm(self, s1, s2):
+        from enum import Enum
+        class ServerType(Enum):
+            USER = 1
+            EDGE = 2
+            CLOUD = 3
+        def get_type(s):
+            if s == -1:
+                return ServerType.USER
+            elif s == self.K - 1:
+                return ServerType.CLOUD
+            else:
+                return ServerType.EDGE
+        
+        t1 = get_type(s1)
+        t2 = get_type(s2)
+        match t1:
+            case ServerType.USER:
+                match t2:
+                    case ServerType.USER:
+                        assert False, "user <-> user get_comm error"
+                    case ServerType.EDGE:
+                        return self.ue_comm[s2]
+                    case ServerType.CLOUD:
+                        return self.uc_comm
+            case ServerType.EDGE:
+                match t2:
+                    case ServerType.USER:
+                        return self.ue_comm[s1]
+                    case ServerType.EDGE:
+                        return self.server_comm[s1][s2]
+                    case ServerType.CLOUD:
+                        return self.server_comm[s1][self.K - 1]
+            case ServerType.CLOUD:
+                match t2:
+                    case ServerType.USER:
+                        return self.uc_comm
+                    case ServerType.EDGE:
+                        return self.server_comm[s2][self.K - 1]
+                    case ServerType.CLOUD:
+                        return 0
+        assert False, "never been there"
+
     """
         func1部署在pos1，func2部署在pos2，计算func1的数据传输到func2的时间
         
