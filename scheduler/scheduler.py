@@ -48,6 +48,9 @@ class Scheduler(metaclass=ABCMeta):
     # 根据函数环境大小即边缘带宽，计算下载时间
     def get_func_edge_download(self, func_startup, edge_bandwith):
         return (np.tile(func_startup.reshape(len(func_startup), 1), (1, self.data.K-1)).T / edge_bandwith.reshape(-1,1)).T
+    
+    def get_cloud_id(self):
+        return self.K-1
 
 
     # 获取s1和s2之间的带宽，若s为-1，则代表user
@@ -172,12 +175,12 @@ class Scheduler(metaclass=ABCMeta):
         ...
         cloud
     返回:
-        (func, proc)元组
+        (func, procs)元组， procs是一个list,因为一个函数可部署到多个位置
     '''
 
     # 按核顺序来返回函数
     def dumb_gen_strategy(self, raw_strategy):
-        assert len(raw_strategy) >= self.cluster.get_core_number(), "strategy length don't match core number"
+        assert len(raw_strategy) >= self.cluster.get_total_core_number(), "strategy length don't match core number"
         finished_func = set()
         all_func = set(self.G.nodes())
         pos = [0 for i in range(len(raw_strategy))]
@@ -191,17 +194,18 @@ class Scheduler(metaclass=ABCMeta):
                     if set(self.G.predecessors(s[j])).issubset(finished_func):
                         pos[i] = j + 1
                         finished_func.add(s[j])
-                        yield s[j],i
+                        yield s[j],[i]
     
     # 按拓扑排序返回函数
     def topology_gen_strategy(self, raw_strategy):
         def find_pos(func):
+            res = []
             for i,s in enumerate(raw_strategy):
                 if func in s:
-                    return i
+                    res.append(i)
                 if func == self.source or func == self.sink:
-                    return -1
-            assert False, "not found"
+                    return [-1]
+            return res
         func = list(nx.topological_sort(self.G))
         for f in func:
             yield f,find_pos(f)
@@ -209,50 +213,50 @@ class Scheduler(metaclass=ABCMeta):
     def trans_strategy(self, strategy):
         
 
-        for func,proc in strategy:
+        for func,procs in strategy:
+            for proc in procs:
+                if func == self.source:
+                    self.gs(func).deploy_in_user(0, 0)
+                elif func == self.sink:
+                    t_i = self.get_input_ready(func, self.pos_user, False)
+                    self.gs(func).deploy_in_user(t_i, t_i)
+                elif proc >= self.cluster.get_total_core_number():
+                    server_id = self.get_cloud_id()
+                    t_start = self.get_input_ready(func, self.pos_cloud, False)
+                    t_end = t_start + self.func_process[func][server_id]
+                    self.gs(func).deploy_in_cloud(t_start, t_end)
+                else:
+                    server_id, core_id = self.cluster.get_server_by_core_id(proc)
 
-            if func == self.source:
-                self.gs(func).deploy_in_user(0, 0)
-            elif func == self.sink:
-                t_i = self.get_input_ready(func, self.pos_user, False)
-                self.gs(func).deploy_in_user(t_i, t_i)
-            elif proc >= self.cluster.get_core_number():
-                server_id = self.get_server(proc)
-                t_start = self.get_input_ready(func, self.pos_cloud, False)
-                t_end = t_start + self.func_process[func][server_id]
-                self.gs(func).deploy_in_cloud(t_start, t_end)
-            else:
-                server_id, core_id = self.cluster.get_server_by_core_id(proc)
+                    # 环境准备好时间
+                    t_e = self.cluster.get_download_complete(server_id) + self.func_edge_download[func][server_id] + self.func_prepare[func]
+                    
+                    # 数据依赖准备好时间
+                    self.gs(func).deploy_in_edge(server_id) # 模拟
+                    t_i = self.get_input_ready(func, self.pos_edge, False)
 
-                # 环境准备好时间
-                t_e = self.cluster.get_download_complete(server_id) + self.func_edge_download[func][server_id] + self.func_prepare[func]
-                
-                # 数据依赖准备好时间
-                self.gs(func).deploy_in_edge(server_id) # 模拟
-                t_i = self.get_input_ready(func, self.pos_edge, False)
+                    t = max(t_e, t_i)
+                    # 函数开始执行时间
+                    t_execute_start = self.cluster.get_core_EST(server_id, core_id, self.func_prepare[func], self.func_process[func][server_id],t)
 
-                t = max(t_e, t_i)
-                # 函数开始执行时间
-                t_execute_start = self.cluster.get_core_EST(server_id, core_id, self.func_prepare[func], self.func_process[func][server_id],t)
+                    # 得到其他的衍生信息
+                    t_execute_end = t_execute_start + self.func_process[func][server_id]
 
-                # 得到其他的衍生信息
-                t_execute_end = t_execute_start + self.func_process[func][server_id]
+                    t_download_start = self.cluster.get_download_complete(server_id)
+                    t_download_end = t_download_start + self.func_edge_download[func][server_id]
+                    self.cluster.set_download_complete(server_id, t_download_end)
 
-                t_download_start = self.cluster.get_download_complete(server_id)
-                t_download_end = t_download_start + self.func_edge_download[func][server_id]
-                self.cluster.set_download_complete(server_id, t_download_end)
+                    t_prepare_start = t_execute_start - self.func_prepare[func]
+                    t_prepare_end = t_execute_start
 
-                t_prepare_start = t_execute_start - self.func_prepare[func]
-                t_prepare_end = t_execute_start
-
-                self.strategy[func].deploy_in_edge(server_id, core_id, \
-                    t_download_start=t_download_start, \
-                    t_download_end=t_download_end, \
-                    t_prepare_start=t_prepare_start, \
-                    t_prepare_end=t_prepare_end,\
-                    t_execute_start=t_execute_start, \
-                    t_execute_end=t_execute_end)
-                self.cluster.place(server_id, self.cluster.get_edge_server_core(server_id, core_id), t_prepare_start, t_execute_end)
+                    self.strategy[func].deploy_in_edge(server_id, core_id, \
+                        t_download_start=t_download_start, \
+                        t_download_end=t_download_end, \
+                        t_prepare_start=t_prepare_start, \
+                        t_prepare_end=t_prepare_end,\
+                        t_execute_start=t_execute_start, \
+                        t_execute_end=t_execute_end)
+                    self.cluster.place(server_id, self.cluster.get_edge_server_core(server_id, core_id), t_prepare_start, t_execute_end)
 
     @abstractmethod
     def schedule(self):

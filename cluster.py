@@ -87,8 +87,11 @@ class Cluster:
             for j in range(cores[i]):
                 self.server_name.append(f"edge_{i}_{j}")
 
-    def get_core_number(self):
+    def get_total_core_number(self):
         return sum(self.cores)
+    
+    def get_core_number(self, server_id):
+        return self.cores[server_id]
     
     def get_server_by_core_id(self, core_id):
         for i, core in enumerate(self.cores):

@@ -57,14 +57,31 @@ class GenDoc(Scheduler):
             res = max(res, predence)
         return res, strategy
     
+    '''
+      转换为特定策略，做了如下妥协：
+      1. 原策略每个func可以部署到多个edge server，这里只选择第一个出现的edge server部署，但是在cloud可以同时在edge和cloud进行部署
+      2. 原策略没有考虑任务并行性，或者说没有考虑一台机器同时执行任务的限制。这里对分配到某台机器上的所有任务按核平均分配
+    '''
     def trans_strategy(self, sched):
-        raw_strategy = [[] for i in range(self.cluster.get_core_number())]
-        for func,proc in sched:
-                raw_strategy[proc].append(func)
+        raw_strategy = [[] for i in range(self.cluster.get_total_core_number()+1)]
+        core_index = [0 for i in range(self.K)] # 计算当前正在使用server的core index
+        func_is_deploy_in_edge = set() # 如果函数已经在edge中部署过了，就不能再部署到edge
+
+        for func,server in sched:
+                if server == self.K-1: # cloud
+                    raw_strategy[-1].append(func)
+                else: # edge
+                    if func in func_is_deploy_in_edge:
+                        continue
+                    func_is_deploy_in_edge.add(func)
+                    raw_strategy[core_index[server]].append(func)
+                    core_index[server] += 1
+                    core_index[server] %= self.cluster.get_core_number(server)
+        print(raw_strategy)
+                
         super().trans_strategy(self.topology_gen_strategy(raw_strategy))
     
     def fixdoc_strategy_parse(self, end, strategy_dict):
-        raw_strategy = []
         place_strategy = [(k, end[k]) for k in end]
         res = set()
         while len(place_strategy) > 0:
