@@ -1,6 +1,7 @@
 import networkx as nx
 from .scheduler import Scheduler
 import math
+import numpy as np
 
 class GenDoc(Scheduler):
     def __init__(self, data, config):
@@ -11,11 +12,15 @@ class GenDoc(Scheduler):
         # 有4个server：3个edge，1个cloud
 
         # edge server - func config deploy
-        self.fc_es_deploy = [[0 for _ in range(self.K)] for _ in range(self.N)]
-        self.deploy_funcs_config(0,[1,2,3,4,5,6,7,8])
-        self.deploy_funcs_config(1,[3,4,5,6])
-        self.deploy_funcs_config(2,[5,6,7,8])
+        self.fc_es_deploy = np.array([[0 for _ in range(self.K)] for _ in range(self.N)])
+        # self.deploy_funcs_config(0,[1,2,3,4,5,6,7,8])
+        # self.deploy_funcs_config(1,[3,4,5,6])
+        # self.deploy_funcs_config(2,[5,6,7,8])
         self.deploy_funcs_config(3, range(self.source+1, self.sink))
+        self.C = np.array([3 for _ in range(self.K-1)]) # 每个edge server的capacity
+
+    def get_func_config_size_by_server_id(self, server_id):
+        return np.sum(self.fc_es_deploy[:,server_id])
 
 
     def deploy_func_config(self,server, func):
@@ -27,6 +32,59 @@ class GenDoc(Scheduler):
         for func in funcs:
             self.deploy_func_config(server, func)
 
+    # 决定每台edge server上部署什么函数
+    def gendoc(self):
+        edge_server_number = self.K - 1
+
+        # func process time without cloud
+        func_process_wo_cloud = self.func_process[1:self.sink,:-1].copy()
+
+        '''
+          对每一行，排序返回下标
+          [[1,2,3]   ->  [[0,1,2]]
+           [3,2,1]]       [2,1,0]
+        '''
+        func_process_rank = np.argsort(func_process_wo_cloud, axis=1)
+        # 当func_process_rank删除元素时，func_process_rank_idx增加
+        func_process_rank_idx = [0] * func_process_rank.shape[0]
+        
+        # 获取一列，每一列的一个元素代表此函数在哪个server上运行的时间最短
+        col = func_process_rank[:,0]
+
+        # 获取最多次数
+        _, counts = np.unique(col, return_counts=True)
+        C_ = np.max(counts)
+
+
+        C_vir = np.maximum(self.C, C_)
+
+        assert len(C_vir) == edge_server_number, "edge server number not match"
+
+        S_ = set(range(edge_server_number))
+        while len(S_) != 0:
+            ok = False
+            for func in range(1, self.sink): # all func configure
+                idx = func_process_rank_idx[func-1]
+                s = func_process_rank[func-1][idx]
+                func_process_rank_idx[func-1] += 1
+
+                # deploy func config
+                if s in S_:
+                    ok = True
+                    self.deploy_func_config(s, func)
+
+                    # reach capacity limit
+                    if self.get_func_config_size_by_server_id(s) >= C_vir[s]:
+                        S_.remove(s)
+            # no process
+            if not ok:
+                break
+        
+        print("func config: \n", self.fc_es_deploy)
+
+        return self.fixdoc()
+    
+    ############## fixdoc start ######################
 
     # func 部署到 server上完成时间，若server为None，则部署到user device
     # u -> v      (func_id)
@@ -96,8 +154,7 @@ class GenDoc(Scheduler):
         print(res)
         return res
 
-
-    # 在资源固定好后（即每台server可部署哪些函数已经确定）
+    # 在资源固定好后（即每台server可部署哪些函数已经确定），决策每个func部署到哪个server
     def fixdoc(self):
         nodes = list(nx.topological_sort(self.G))
         
@@ -122,11 +179,11 @@ class GenDoc(Scheduler):
         print(res, strategy)
         return self.fixdoc_strategy_parse(strategy, strategy_dict)
 
-
+    ###### fixdoc end ####################################
 
     def schedule(self):
-        sched = self.fixdoc()
+        # sched = self.fixdoc()
+        sched = self.gendoc()
         self.trans_strategy(sched)
-
         self.show_result("GenDoc")
         
