@@ -199,6 +199,8 @@ class Scheduler(metaclass=ABCMeta):
             for i,s in enumerate(raw_strategy):
                 if func in s:
                     return i
+                if func == self.source or func == self.sink:
+                    return -1
             assert False, "not found"
         func = list(nx.topological_sort(self.G))
         for f in func:

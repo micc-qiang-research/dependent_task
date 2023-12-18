@@ -57,7 +57,14 @@ class GenDoc(Scheduler):
             res = max(res, predence)
         return res, strategy
     
+    def trans_strategy(self, sched):
+        raw_strategy = [[] for i in range(self.cluster.get_core_number())]
+        for func,proc in sched:
+                raw_strategy[proc].append(func)
+        super().trans_strategy(self.topology_gen_strategy(raw_strategy))
+    
     def fixdoc_strategy_parse(self, end, strategy_dict):
+        raw_strategy = []
         place_strategy = [(k, end[k]) for k in end]
         res = set()
         while len(place_strategy) > 0:
@@ -70,6 +77,7 @@ class GenDoc(Scheduler):
             s = strategy_dict[strategy]
             place_strategy.extend([(k, s[k]) for k in s])
         print(res)
+        return res
 
 
     # 在资源固定好后（即每台server可部署哪些函数已经确定）
@@ -95,10 +103,13 @@ class GenDoc(Scheduler):
                 strategy_dict[(i,k)] = strategy
         res, strategy = self.get_earliest_finish(self.sink, None,P, F)
         print(res, strategy)
-        self.fixdoc_strategy_parse(strategy, strategy_dict)
+        return self.fixdoc_strategy_parse(strategy, strategy_dict)
 
 
 
     def schedule(self):
-        return self.fixdoc()
+        sched = self.fixdoc()
+        self.trans_strategy(sched)
+
+        self.show_result("GenDoc")
         
