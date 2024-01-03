@@ -42,45 +42,33 @@ class DataSource:
 
 
 class DataByTxt(Data):
-    @Data.check()
+    @Data.check(True)
     def __init__(self, path):
-        self.path = path
-        self.acquire_data(path)
-
-    def read_dag(self, path):
-        self.G = nx.DiGraph()
-        data = pd.read_csv(path)
-        edges = [(int(s)-1,int(d)-1, w) for s,d,w in data.to_numpy()]
-        self.G.add_weighted_edges_from(edges)
-
+        self.read_data(path)
 
     def read_data(self, path):
         data = DataSource(path)
+        self.N = data.get(int) # func number
         self.K = data.get(int) # server number，include cloud
-        self.N = data.get(int) # func number, not include source\sink
-        
-        self.edge_bandwidth = []
-        for i in range(self.K-1):
-            self.edge_bandwidth.append(data.get(float))
+        self.L = data.get(int) # layer number
 
-        # TODO. 每台server的核数先写死为2
-        self.cores = []
-        for i in range(self.K-1):
-            self.cores.append(2)
-        
-        self.func_startup = []
+        self.func_info = []
         for i in range(self.N):
-            self.func_startup.append(data.get(float))
+            # layer_info + func_prepare
+            self.func_info.append(([int(i) for i in data.get(str).split(",")],0))
+
+        self.G = nx.DiGraph()
+        edges_number = data.get(int)
+        for i in range(edges_number):
+            s,d,w = data.get(int), data.get(int), data.get(float)
+            self.G.add_edge(s,d,weight=w)
         
         self.func_process = []
         for i in range(self.N):
-            process = []
+            tmp = []
             for j in range(self.K):
-                process.append(data.get(float))
-            self.func_process.append(process)
-
-        # 准备时间设置成平均执行时间的1/5
-        self.func_prepare = 0.2 * np.sum(np.array(self.func_process), axis=1) / np.array(self.func_process).shape[1]
+                tmp.append(data.get(float))
+            self.func_process.append(tmp)
 
         self.server_comm = []
         for i in range(self.K):
@@ -89,15 +77,18 @@ class DataByTxt(Data):
                 comm.append(data.get(float))
             self.server_comm.append(comm)
 
-        # 用户和云的通信延迟为：云和其他边缘服务器通信延迟的均值
-        self.uc_comm = np.array(self.server_comm[self.K-1][:-1]).mean()
+        self.server_info = []
+        for i in range(self.K):
+            # core、storage、download_latency
+            tmp = []
+            tmp.append(data.get(int))
+            tmp.append(data.get(float))
+            tmp.append(data.get(float))
+            self.server_info.append(tmp)
         
-        # 用户和第i个边缘服务器之间的通信延迟为：第i个边缘服务器和其他边缘服务器通信延迟的均值
-        self.ue_comm = [np.sum(i[:-1]) / (self.K-1) for i in self.server_comm[:-1]]
-        
-        return os.path.join(os.path.dirname(path),data.get(str))
+        self.layer_info = []
+        for i in range(self.L):
+            self.layer_info.append(data.get(float))
 
+        self.generate_pos = data.get(int) # dag生成位置
 
-    def acquire_data(self, path):
-        dag = self.read_data(path)
-        self.read_dag(dag)

@@ -10,26 +10,26 @@ class Scheduler(metaclass=ABCMeta):
     def __init__(self,data,config):
         self.data = data
         self.config = config
-        self.G = self.data.G
-        self.func_process = np.array(self.data.func_process) # 函数执行时间
-        self.edge_bandwith = np.array(self.data.edge_bandwidth) # 边缘服务器带宽 1..(k-1)
-        self.func_startup = np.array(self.data.func_startup) # 函数环境大小
-        self.func_edge_download = self.get_func_edge_download(self.func_startup, self.edge_bandwith) # 函数在各个边缘下载时间
-        self.func_prepare = np.array(self.data.func_prepare)
-        self.server_comm = np.array(self.data.server_comm) # 服务器之间的通信时间
-        self.ue_comm = np.array(self.data.ue_comm) # 用户<->edge
-        self.uc_comm = self.data.uc_comm # 用户<->cloud
 
+        # Input
         self.N = self.data.N
         self.K = self.data.K
+        self.L = self.data.L
         self.source = 0
         self.sink = self.N - 1
+        self.G = self.data.G
+        self.func_process = np.array(self.data.func_process) # 函数执行时间
+        self.server_comm = np.array(self.data.server_comm) # 服务器之间的通信时间
+        self.funcs = self.data.funcs
+        self.servers = self.data.servers
+        self.layers = self.data.layers
+        self.func_startup = np.array(self.data.func_startup) # 函数环境大小
 
+        self.func_download_time = self.get_func_download_time(self.func_startup, np.array([s.download_latency for s in self.servers])) # 函数在各个边缘下载时间
         self.strategy = [SchedStrategy(i, self.data.N) for i in range(self.data.N)] # 任务放置的服务器、核、开始时间、结束时间
 
-        self.cluster = Cluster(self.data.cores)
+        self.cluster = Cluster([i.core for i in self.servers])
 
-        self.pos_user = 0
         self.pos_edge = 1
         self.pos_cloud = 2
 
@@ -46,8 +46,8 @@ class Scheduler(metaclass=ABCMeta):
         return res
 
     # 根据函数环境大小即边缘带宽，计算下载时间
-    def get_func_edge_download(self, func_startup, edge_bandwith):
-        return (np.tile(func_startup.reshape(len(func_startup), 1), (1, self.data.K-1)).T / edge_bandwith.reshape(-1,1)).T
+    def get_func_download_time(self, func_startup, edge_bandwith):
+        return (np.tile(func_startup.reshape(len(func_startup), 1), (1, self.data.K)).T * edge_bandwith.reshape(-1,1)).T
     
     def get_cloud_id(self):
         return self.K-1

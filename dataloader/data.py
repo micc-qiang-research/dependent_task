@@ -2,22 +2,39 @@ from abc import abstractmethod, ABCMeta
 import networkx as nx
 import numpy as np
 import json
+from typing import NamedTuple
+
+Server = NamedTuple("Server", [("core", int), ("storage", float), ("download_latency", float)])
+Func = NamedTuple("Func", [("layer", set),("prepare", float)])
+Layer = NamedTuple("Layer", [("size", float)])
 
 class Data(metaclass=ABCMeta):
     @abstractmethod
     def __init__(self, path):
         pass
-        # self.N = None # 任务数，包括source sink
-        # self.K = None # edge server数
+        # self.N = None # task number, include source、sink
+        # self.K = None # server number， include cloud
+        # self.L = None # layer number
+
+        ## 如func_info为 [[0,1],[1,2,3],[0,2]]，表示第0个函数包含第0、1层，第1个函数包含第1、2、3层，第2个函数包含第0、2层
         # self.G = None # DAG
+        # self.func_info = None # 每个函数包含哪些layer
         # self.func_process = None # 每个节点的处理时间
-        # self.func_prepare = None # 每个节点的环境准备时间
-        # self.func_startup = None # 每个节点的环境大小
-        # self.edge_bindwidth = None # 每个节点下载image带宽
+        # self.func_prepare = None # 每个节点的环境准备时间，本项目为0，忽略
+        
         # self.server_comm = None # server之间通信带宽
-        # self.ue_comm = None
-        # self.uc_comm = None
-        # self.cores = None # 每个edge server含有的core数量
+        # self.server_info = None # 每台server含有的core数量、存储大小、下载延迟
+        
+        # self.layer_info = None # 每个layer的大小
+
+        # self.generate_pos = None # dag生成位置
+
+
+        ### 衍生变量
+        # self.func_startup = None # 每个节点的环境大小
+        # self.servers
+        # self.layers
+        # self.funcs
 
     @classmethod
     def check(cls, dump=False):
@@ -27,26 +44,40 @@ class Data(metaclass=ABCMeta):
                 self = args[0]
                 if not isinstance(self, cls):
                     raise BaseException("method is not a Data instance")
-                self.N
-                self.K
-                self.G
-                self.func_process
-                self.func_prepare
-                self.func_startup
-                self.edge_bandwidth
-                self.server_comm
-                self.ue_comm
-                self.uc_comm
-                self.cores
-                assert type(self.N) == int, "error"
-                assert type(self.K) == int, "error"
+                assert hasattr(self, "N") and \
+                        hasattr(self,"K") and \
+                        hasattr(self,"L") and \
+                        hasattr(self,"G") and \
+                        hasattr(self,"func_info") and \
+                        hasattr(self,"func_process") and \
+                        hasattr(self,"server_comm") and \
+                        hasattr(self,"server_info") and \
+                        hasattr(self,"layer_info") and \
+                        hasattr(self,"generate_pos"), "error"
+                # self.func_startup
+                # self.servers
+                # self.layers
+                # self.funcs
+                
+                assert type(self.N) == int and type(self.K) == int and type(self.L) == int, "error"
+                assert len(self.func_info) == self.N
                 assert np.array(self.func_process).shape == (self.N, self.K), "error"
-                assert len(self.func_prepare) == self.N, "error"
-                assert len(self.func_startup) == self.N, "error"
-                assert len(self.edge_bandwidth) == self.K - 1, "error"
                 assert np.array(self.server_comm).shape ==  (self.K, self.K), "error"
-                assert len(self.ue_comm) == self.K - 1, "error"
-                assert len(self.cores) == self.K - 1, "error"
+                assert np.array(self.server_info).shape == (self.K, 3), "error"
+                assert len(self.layer_info) == self.L, "error"
+                assert 0 <= self.generate_pos < self.K, "error"
+
+                self.funcs = [Func(*f) for f in self.func_info]
+                self.servers = [Server(*s) for s in self.server_info]
+                self.layers = [Layer(l) for l in self.layer_info]
+                self.func_startup = []
+                for i in range(self.N):
+                    size = 0
+                    for l in range(self.L):
+                        if l in self.funcs[i].layer:
+                            size += self.layers[l].size
+                    self.func_startup.append(size)
+
                 if dump:
                     self.dump()
             return wrapper
@@ -56,15 +87,13 @@ class Data(metaclass=ABCMeta):
         info = {
             "_N": self.N,
             "_K": self.K,
+            "_L": self.L,
             "_G": list(self.get_edges()),
-            "_func_process": [list(i) for i in self.func_process],
-            "_func_prepare": list(self.func_prepare),
-            "_func_startup": list(self.func_startup),
-            "_edge_bandwidth": list(self.edge_bandwidth),
+            "_func_info": [list(i) for i in self.func_info],
+            "_func_process": list(self.func_process),
             "_server_comm": list(self.server_comm),
-            "_ue_comm": list(self.ue_comm),
-            "_uc_comm": self.uc_comm,
-            "_cores": list(self.cores),
+            "_server_info": list(self.server_info),
+            "_layer_info": list(self.layer_info),
         }
         separators = (',', ':')
         with open("data.json", "w") as f:
@@ -75,113 +104,3 @@ class Data(metaclass=ABCMeta):
         for u,v,data in self.G.edges(data=True):
             edges.append([u,v,data["weight"]])
         return edges
-
-    @property
-    def N(self) -> int:
-        if not hasattr(self, "_N"):
-            raise Exception("N is not defined")
-        return self._N
-
-    @N.setter
-    def N(self, value: list):
-        self._N = value
-
-    @property
-    def K(self) -> list:
-        if not hasattr(self, "_K"):
-            raise Exception("K is not defined")
-        return self._K
-
-    @K.setter
-    def K(self, value: int):
-        self._K = value
-
-    @property
-    def G(self) -> nx.DiGraph:
-        if not hasattr(self, "_G"):
-            raise Exception("G is not defined")
-        return self._G
-
-    @G.setter
-    def G(self, value: nx.DiGraph):
-        self._G = value
-
-    @property
-    def func_process(self) -> list:
-        if not hasattr(self, "_func_process"):
-            raise Exception("func_process is not defined")
-        return self._func_process
-
-    @func_process.setter
-    def func_process(self, value: list):
-        self._func_process = value
-
-    @property
-    def func_prepare(self) -> list:
-        if not hasattr(self, "_func_prepare"):
-            raise Exception("func_prepare is not defined")
-        return self._func_prepare
-
-    @func_prepare.setter
-    def func_prepare(self, value: list):
-        self._func_prepare = value
-
-    @property
-    def func_startup(self) -> list:
-        if not hasattr(self,"_func_startup"):
-            raise Exception("func_startup is not defined")
-        return self._func_startup
-
-    @func_startup.setter
-    def func_startup(self, value: list):
-        self._func_startup = value
-
-    @property
-    def edge_bandwidth(self) -> list:
-        if not hasattr(self,"_edge_bandwidth"):
-            raise Exception("edge_bandwidth is not defined")
-        return self._edge_bandwidth
-
-    @edge_bandwidth.setter
-    def edge_bandwidth(self, value: list):
-        self._edge_bandwidth = value
-
-    @property
-    def server_comm(self) -> list:
-        if not hasattr(self, "_server_comm"):
-            raise Exception("server_comm is not defined")
-        return self._server_comm
-
-    @server_comm.setter
-    def server_comm(self, value: list):
-        self._server_comm = value
-
-    @property
-    def ue_comm(self) -> int:
-        if not hasattr(self, "_ue_comm"):
-            raise Exception("ue_comm is not defined")
-        return self._ue_comm
-
-    @ue_comm.setter
-    def ue_comm(self, value: int):
-        self._ue_comm = value
-
-    @property
-    def uc_comm(self) -> int:
-        if not hasattr(self, "_uc_comm"):
-            raise Exception("uc_comm is not defined")
-        return self._uc_comm
-
-    @uc_comm.setter
-    def uc_comm(self, value: int):
-        self._uc_comm = value
-
-    @property
-    def cores(self) -> list:
-        if not hasattr(self, "_cores"):
-            raise Exception("cores is not defined")
-        return self._cores
-
-    @cores.setter
-    def cores(self, value: list):
-        self._cores = value

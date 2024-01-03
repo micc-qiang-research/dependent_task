@@ -45,6 +45,7 @@ if __name__ == '__main__':
     print("scheduler: ", config.scheduler)
     # try:
     data : Data = getFileLoader(filetype)(config.data)
+    # draw_dag(data.G)
     if config.dag:
         draw_dag(data.G)
     scheduler :Scheduler = eval(config.scheduler)(data,config)
