@@ -2,6 +2,7 @@ import numpy as np
 import math
 from strategy import Strategy
 from cluster import Cluster
+import networkx as nx
 
 class Executor:
     def __init__(self, data):
