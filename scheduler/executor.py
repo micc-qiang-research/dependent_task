@@ -5,6 +5,8 @@ from cluster import Cluster
 import networkx as nx
 
 class Executor:
+    DUMB = 0
+    TOPOLOGY = 1
     def __init__(self, data):
         self.data = data
         self.read_info()

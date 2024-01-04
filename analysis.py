@@ -6,7 +6,7 @@ from scheduler.executor import Executor
 from strategy import Strategy
 
 class Analysis(Executor):
-    def __init__(self, data, replica, place, download_sequence):
+    def __init__(self, data, replica, place, download_sequence, gen_strategy = Executor.DUMB):
         super().__init__(data)
         self.data = data
         self.replica = replica
@@ -35,7 +35,7 @@ class Analysis(Executor):
                         self.layer_download_complete[layer] = download_time
             st = 0
             res = -1
-            for layer in self.funcs[func_id].layers:
+            for layer in self.funcs[func_id].layer:
                 if self.layer_download_complete[layer] == math.inf:
                     assert False, f"server {server_id} need layer {layer}"
                 if res < self.layer_download_complete[layer]:

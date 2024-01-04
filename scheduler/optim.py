@@ -2,93 +2,24 @@ import numpy as np
 from typing import NamedTuple
 from docplex.mp.model import Model
 import networkx as nx
+from .scheduler import Scheduler
+from .executor import Executor
 
+class Optim(Scheduler):
+    def is_func_has_layer(self, func, layer):
+        if layer in self.funcs[func].layer:
+            return 1
+        return 0
 
-class Task:
-    def __init__(self, id):
-        self.id = id
-        self.processor_id = None
-        self.rank = None
-        self.comp_cost = []
-        self.avg_comp = None
-        self.duration = {'start':None, 'end':None}
-        self.CNP = False
-        self.weight = None
-
-class Processor:
-    def __init__(self, id):
-        self.id = id
-        self.task_list = []
-
-
-# TODO，可以从文件中读取数据，目前数据先写死
-class InputData:
-    def __init__(self,path):
-        self.K = 2 # server number
-        self.N = 4 # func number
-        self.L = 5 # layer number
-
-        #### func
-        # 函数依赖哪个layer，N*L
-        self.func_info = [
-            [[1,1,1,0,0]],
-            [[1,0,1,1,0]],
-            [[1,0,0,0,1]],
-            [[0,1,0,1,0]],
-        ]
-
-        # 函数之间的数据依赖关系，N*N
-        self.data_trans = [
-            [0, 2, 4, 0],
-            [0, 0, 1, 4],
-            [0, 0, 0, 2],
-            [0, 0, 0, 0]
-        ]
-
-        ### server
-        
-        # 服务器之间通信的带宽，K*K
-        self.server_comm = [
-            [0, 1],
-            [1, 0]
-        ]
-
-        # 服务器下载镜像块的带宽，K*1
-        self.download_latency = [2,2]
-
-        
-        # 服务器的信息，K*2
-        self.server_info = [
-            [2,8], # core, storage
-            [2,10]
-        ]
-
-        # 函数在服务器上的处理时间，N*K
-        self.func_server_process = [
-            [1, 2],
-            [2, 1],
-            [3, 1],
-            [2, 2]
-        ]
-
-        ### layer
-        self.layer_info = [3,2,4,1,2]
-
-
-Server = NamedTuple("Server", [("core", int), ("storage", int)])
-Func = NamedTuple("Func", [("layer", np.ndarray)])
-Layer = NamedTuple("Layer", [("size", int)])
-
-class OptimScheduler:
-    def solve(self, data):
+    def solve(self):
         mdl = Model(name="optim_solver")
-        funcs = [Func(*f) for f in data.func_info]
-        servers = [Server(*s) for s in data.server_info]
-        layers = [Layer(l) for l in data.layer_info]
+        funcs = self.funcs
+        servers = self.servers
+        layers = self.layers
         
-        range_func = range(data.N)
-        range_server = range(data.K)
-        range_layer = range(data.L)
+        range_func = range(self.N)
+        range_server = range(self.K)
+        range_layer = range(self.L)
         
         max_core_number = max([s.core for s in servers])
         range_core = range(max_core_number)
@@ -178,35 +109,35 @@ class OptimScheduler:
                     for n in range_server \
                         for n_ in range_server)
         
-        mdl.add_constraints(B[i,j] == mdl.sum( XX[i,j,n,n_]*data.server_comm[n][n_] for n_ in range_server for n in range_server) \
+        mdl.add_constraints(B[i,j] == mdl.sum( XX[i,j,n,n_]*self.server_comm[n][n_] for n_ in range_server for n in range_server) \
                 for i in range_func \
                     for j in range_func)
     
         # 数据准备好时间
         mdl.add_constraints(\
-            T_data[i] >= T_end[j] + B[j,i] * data.data_trans[j][i] \
+            T_data[i] >= T_end[j] + B[j,i] * self.get_weight(j,i) \
                 for j in range_func \
-                    for i in range_func if data.data_trans[j][i] != 0)
+                    for i in range_func if self.G.has_edge(j,i) != 0)
 
         # 结束时间
         mdl.add_constraints((T_end[i] == T_start[i] + \
-            mdl.sum(X[i,n] * data.func_server_process[i][n] 
+            mdl.sum(X[i,n] * self.func_process[i][n] 
                 for n in range_server)) \
                     for i in range_func)
 
         # 函数只能调度到含有所需镜像块的机器
-        mdl.add_constraints( X[i,n]*funcs[i].layer[l] <= G[n,l] \
+        mdl.add_constraints( X[i,n]*self.is_func_has_layer(i, l) <= G[n,l] \
             for i in range_func \
                 for n in range_server \
                     for l in range_layer)
 
         # 以下两条约束保证，server含有函数所需的镜像块且相同的镜像块至多含有一个
-        mdl.add_constraints( G[n, l] <= mdl.sum(X[i,n]*funcs[i].layer[l]\
+        mdl.add_constraints( G[n, l] <= mdl.sum(X[i,n]*self.is_func_has_layer(i, l)\
             for i in range_func) \
                 for n in range_server 
                     for l in range_layer) 
         
-        mdl.add_constraints( G[n, l] >= mdl.sum(X[i,n]*funcs[i].layer[l] for i in range_func)/M \
+        mdl.add_constraints( G[n, l] >= mdl.sum(X[i,n]*self.is_func_has_layer(i, l) for i in range_func)/M \
                 for n in range_server 
                     for l in range_layer)
 
@@ -247,10 +178,10 @@ class OptimScheduler:
                             for l2 in range_layer)
 
         # 镜像块准备好的时间为所有层都准备好
-        mdl.add_constraints( T_image[i] >= data.download_latency[n] * mdl.sum(Q[n,i,l_,l] * layers[l_].size for l_ in range_layer )\
+        mdl.add_constraints( T_image[i] >= self.servers[n].download_latency * mdl.sum(Q[n,i,l_,l] * layers[l_].size for l_ in range_layer )\
                 for n in range_server \
                     for l in range_layer \
-                        for i in range_func if funcs[i].layer[l] == 1)
+                        for i in range_func if self.is_func_has_layer(i, l) == 1)
 
         mdl.add_constraints(T_start[i] >= T_data[i] for i in range_func)
 
@@ -291,48 +222,6 @@ class OptimScheduler:
         solution = mdl.solve()
 
         return mdl, solution
-    
-    def build_dag(self):
-        dag = nx.DiGraph()
-        for i in self.range_func:
-            for j in self.range_func:
-                if self.data.data_trans[i][j] != 0:
-                    dag.add_edge(i, j, weight=self.data.data_trans[i][j])
-        return dag
-    
-    def get_makespan(self, task_server_mapper, download_sequence):
-        # 计算服务器某layer准备好时间
-        server_layer_mapper = [{} for _ in self.range_server]
-        for i in self.range_server:
-            download_finish = 0
-            for l in download_sequence[i]:
-                server_layer_mapper[i][l] = download_finish + self.data.download_latency[i] * self.data.layer_info[l]
-                download_finish = server_layer_mapper[i][l]
-        
-        print(server_layer_mapper)
-
-        self.dag = self.build_dag()
-        tasks = list(nx.topological_sort(self.dag))
-        ready = [[0 for _ in self.range_core]for _ in self.range_server]
-
-        for i in tasks:
-            server_id, core_id = task_server_mapper[i]
-            start_time = ready[server_id][core_id]
-            for j in self.dag.predecessors(i):
-                if task_server_mapper[j][0] != server_id:
-                    start_time = max(start_time, self.tasks[j].duration['end'] + self.data.data_trans[j][i] * self.data.server_comm[task_server_mapper[j][0]][server_id])
-                else:
-                    start_time = max(start_time, self.tasks[j].duration['end'])
-            end_time = start_time + self.data.func_server_process[i][server_id]
-            
-            ready[server_id][core_id] = end_time
-            self.tasks[i].duration['start'] = start_time
-            self.tasks[i].duration['end'] = end_time
-            # self.processors[processor_id].task_list.append(self.tasks[i])
-        self.makespan = max([self.tasks[i].duration['end'] for i in self.range_func])
-        print(self.makespan)
-        return self.makespan
-
 
     def get_server_core(self, processor):
         server_id = processor // self.data.K
@@ -351,7 +240,7 @@ class OptimScheduler:
             task_server_mapper[i] = (server_id, core_id)
 
             for layer in range(self.data.L):
-                if self.data.func_info[i][0][layer] > 0:
+                if layer in self.data.funcs[i].layer:
                     layers[server_id].add(layer)
 
         for i, server_p in enumerate(P):
@@ -360,7 +249,9 @@ class OptimScheduler:
 
         print(task_server_mapper)
         print(download_sequence)
-        self.get_makespan(task_server_mapper, download_sequence)
+        self.task_server_mapper = task_server_mapper
+        self.download_sequence = download_sequence
+        # self.get_makespan(task_server_mapper, download_sequence)
             
 
     def parse(self, mdl, solution):
@@ -385,15 +276,20 @@ class OptimScheduler:
             print("求解失败")
             exit(1)
 
+    def output_scheduler_strategy(self):
+        replica = False
+        place = [[] for i in range(self.cluster.get_total_core_number())]
+        download_sequence = self.download_sequence
+        for task_id in self.task_server_mapper:
+            server_id, core_id = self.task_server_mapper[task_id]
+            pid = self.cluster.get_total_core_id(server_id, core_id)
+            place[pid].append(task_id)
+        return replica, place, download_sequence, Executor.TOPOLOGY
 
-    def __init__(self, data):
-        self.data = data
-        self.tasks = [Task(i) for i in range(self.data.N)]
-        self.processors = [Processor(i) for i in range(self.data.K)]
+    def __init__(self, data, config):
+        super().__init__(data, config)
 
     def schedule(self):
-        mdl, solution = self.solve(self.data)
+        mdl, solution = self.solve()
         self.parse(mdl, solution)
-
-
-OptimScheduler(InputData("")).schedule()
+        return self.output_scheduler_strategy()
