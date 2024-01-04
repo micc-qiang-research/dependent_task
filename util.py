@@ -65,7 +65,7 @@ def output_gantt_json(name, rows, bars, finish_time):
     legend_str = "{{\"color\": \"{}\", \"text\": \"{}\"}},"
     for i, color in enumerate(colors[:-3]):
         legend = legend + legend_str.format(color, "task_{}".format(i+1))
-    legend = legend + legend_str.format(prepare_color, "Prepare")
+    # legend = legend + legend_str.format(prepare_color, "Prepare")
     legend = legend + legend_str.format(download_color, "Download")
     legend = legend + legend_str.format(user_color, "User")[:-1]
 

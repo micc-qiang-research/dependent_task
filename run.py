@@ -5,6 +5,7 @@ from util import *
 import argparse
 from types import SimpleNamespace
 import os
+from analysis import Analysis
 
 def parse():
     parser = argparse.ArgumentParser()
@@ -49,7 +50,7 @@ if __name__ == '__main__':
     if config.dag:
         draw_dag(data.G)
     scheduler :Scheduler = eval(config.scheduler)(data,config)
-    scheduler.schedule()
+    Analysis(data, *scheduler.schedule())
     # except Exception as e:
     #     print(e)
     #     exit(1)

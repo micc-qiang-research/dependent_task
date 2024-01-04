@@ -155,7 +155,8 @@ class Cluster:
     #     self.cloud_cores[-1].occupy(start, end)
     #     return self.cloud_core_names[-1]
 
-    # def get_names(self):
-    #     if hasattr(self, "cloud_core_number"):
-    #         return self.cloud_core_names + self.server_name
-    #     return self.server_name
+    def get_names(self):
+        for i in range(self.K):
+            yield f"server_{i}_d"
+            for j in range(self.cores_number_array[i]):
+                yield f"server_{i}_{j}"

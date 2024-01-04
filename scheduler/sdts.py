@@ -272,8 +272,8 @@ class SDTS(Scheduler):
         cloud_start_core_id = self.cluster.get_total_core_number() - cloud_core_number
         cloud_cores = [Core(i) for i in range(cloud_core_number)]
         for deploy in cloud_deploy:
+            success = False
             for i, core in enumerate(cloud_cores):
-                success = False
                 if core.is_occupy(deploy["start"], deploy["end"]):
                     continue
                 else:
