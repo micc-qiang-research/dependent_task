@@ -1,12 +1,7 @@
 import networkx as nx
-import matplotlib.pyplot as plt
-import pandas as pd
-import os
 import numpy as np
 import portion as P
-from dataloader.data import Data
 from util import *
-from strategy import SchedStrategy
 from .scheduler import Scheduler
 import math
 from cluster import Core
@@ -16,104 +11,11 @@ class SDTS(Scheduler):
         super().__init__(data, config)
         self.G_ = nx.DiGraph()
         self.G_end = "end"
-        self.func_download_time = self.get_func_download_time(self.func_startup, np.array([s.download_latency for s in self.servers])) # 函数在各个边缘下载时间
-        self.pos_edge = 1
-        self.pos_cloud = 2
+        
         self.func_edge_download = self.func_download_time[:,:-1] # sdts算法假设在cloud不需要环境准备时间
         self.func_prepare = np.array([i.prepare for i in self.funcs])
         
         self.is_scheduler = set() # 目前已经调度的节点
-
-    # 根据函数环境大小即边缘带宽，计算下载时间
-    def get_func_download_time(self, func_startup, edge_bandwith):
-        return (np.tile(func_startup.reshape(len(func_startup), 1), (1, self.data.K)).T * edge_bandwith.reshape(-1,1)).T
-
-    # 获取s1和s2之间的带宽，若s为-1，则代表user
-    def get_comm(self, s1, s2):
-        from enum import Enum
-        class ServerType(Enum):
-            USER = 1
-            EDGE = 2
-            CLOUD = 3
-        def get_type(s):
-            if s == -1:
-                return ServerType.USER
-            elif s == self.K - 1:
-                return ServerType.CLOUD
-            else:
-                return ServerType.EDGE
-        
-        t1 = get_type(s1)
-        t2 = get_type(s2)
-        match t1:
-            case ServerType.USER:
-                match t2:
-                    case ServerType.USER:
-                        assert False, "user <-> user get_comm error"
-                    case ServerType.EDGE:
-                        return self.ue_comm[s2]
-                    case ServerType.CLOUD:
-                        return self.uc_comm
-            case ServerType.EDGE:
-                match t2:
-                    case ServerType.USER:
-                        return self.ue_comm[s1]
-                    case ServerType.EDGE:
-                        return self.server_comm[s1][s2]
-                    case ServerType.CLOUD:
-                        return self.server_comm[s1][self.K - 1]
-            case ServerType.CLOUD:
-                match t2:
-                    case ServerType.USER:
-                        return self.uc_comm
-                    case ServerType.EDGE:
-                        return self.server_comm[s2][self.K - 1]
-                    case ServerType.CLOUD:
-                        return 0
-        assert False, "never been there"
-
-    """
-        func1部署在pos1，func2部署在pos2，计算func1的数据传输到func2的时间
-        
-        is_err表示pos1没有func1时是否报错
-    """
-    def input_ready(self, func1, func2, pos1, pos2):
-        weight = self.get_weight(func1, func2)
-        # func1部署的位置
-        if pos1 == self.pos_cloud:
-            server1 = self.get_cloud_id()
-        elif pos1 == self.pos_edge:
-            server1 = self.gs(func1).get_edge_id()
-        else:
-            assert False, "input ready error"
-
-        # func2部署的位置
-        if pos2 == self.pos_cloud:
-            server2 = self.get_cloud_id()
-        elif pos2 == self.pos_edge:
-            server2 = self.gs(func2).get_edge_id()
-        else:
-            assert False, "input ready error"
-        
-        data_trans_time = self.server_comm[server1][server2] * weight
-        if pos1 == self.pos_cloud:
-            return self.gs(func1).get_cloud_end() + data_trans_time
-        elif pos1 == self.pos_edge:
-            return self.gs(func1).get_edge_end() + data_trans_time
-
-
-    def get_input_ready(self, func2, pos2):
-        res = 0
-        for i in self.G.predecessors(func2):
-            if i == self.source:
-                v = self.input_ready(i, func2, self.pos_edge, pos2)
-            else:
-                v = min(
-                    self.input_ready(i, func2, self.pos_edge, pos2),
-                    self.input_ready(i, func2, self.pos_cloud, pos2),
-                )
-            res = max(v, res)
-        return res
 
     def priority(self, func_edge_download, server_comm, func_process):
         G = self.G
@@ -141,12 +43,10 @@ class SDTS(Scheduler):
         early_core_id = None
         early_server_id = -1
         for idx, server in enumerate(self.cluster.get_server()[:-1]):
-            self.gs(func).deploy_in_edge(server=idx) # 尝试deploy
-
             t_e = self.cluster.get_download_complete(idx) + func_edge_download[func][idx] + func_prepare[func] # 环境准备好时间
             
             # t_i = self.get_input_ready(idx, func) # 数据依赖准备好时间
-            t_i = self.get_input_ready(func, self.pos_edge) # 数据依赖准备好时间
+            t_i = self.get_input_ready(func, "edge", idx) # 数据依赖准备好时间
             t = max(t_e, t_i)
             # 得到在此服务器上的最早开始时间
             core, start_time = server.ESTfind(t, func_prepare[func], func_process[func][idx])
@@ -154,8 +54,6 @@ class SDTS(Scheduler):
                 early_start_time = start_time
                 early_core_id = core.idx
                 early_server_id = idx
-
-            self.gs(func).clear_edge_deploy() # 清除deploy
 
         ### 选择 early_idx对应的server 作为目标server       
         # 更新server的下载完成时间
@@ -167,14 +65,13 @@ class SDTS(Scheduler):
         self.cluster.place(early_server_id, early_core_id, early_start_time - func_prepare[func], early_start_time + func_process[func][early_server_id])
         
         # 记录调度策略，策略记录的开始时间是开始执行时间，不包括准备时间
-        self.strategy[func].deploy_in_edge(early_server_id, early_core_id, \
+        self.strategy[func].deploy("edge", \
+            server_id=early_server_id, \
+            core_id=early_core_id, \
             t_download_start=t_download_start, \
             t_download_end=t_download_finish, \
-            t_prepare_start=early_start_time - func_prepare[func], \
-            t_prepare_end=early_start_time,\
             t_execute_start=early_start_time, \
             t_execute_end=early_start_time + func_process[func][early_server_id])
-
 
     def _update_G_(self, G_, source, dest):
         if source == self.source:
@@ -182,28 +79,27 @@ class SDTS(Scheduler):
             G_.add_edge(source, dest)
             G_.add_edge(source, -dest)
         elif dest == self.sink:
-            if self.input_ready(source, dest, self.pos_edge, self.pos_edge) <= \
-                self.input_ready(source, dest, self.pos_cloud, self.pos_edge):
+            if self.input_ready(source, dest, "edge", "edge") <= \
+                self.input_ready(source, dest, "cloud", "edge"):
                 G_.add_edge(source, dest)
             else:
                 G_.add_edge(-source, dest)
         else:
             # dest
-            if self.input_ready(source, dest, self.pos_edge, self.pos_edge) <= \
-                self.input_ready(source, dest, self.pos_cloud, self.pos_edge):
+            if self.input_ready(source, dest, "edge", "edge") <= \
+                self.input_ready(source, dest, "cloud", "edge"):
                 G_.add_edge(source, dest)
             else:
                 G_.add_edge(-source, dest)  
 
             # -dest
-            if self.input_ready(source, dest, self.pos_edge, self.pos_cloud) <= \
-                self.input_ready(source, dest, self.pos_cloud, self.pos_cloud):
+            if self.input_ready(source, dest, "edge", "cloud") <= \
+                self.input_ready(source, dest, "cloud", "cloud"):
                 G_.add_edge(source, -dest)
             else:
                 G_.add_edge(-source, -dest)  
         # draw_dag(G_)
             
-
     def _all_successor_scheduler(self, node):
         return set(self.G.successors(node)).issubset(self.is_scheduler)
 
@@ -238,16 +134,16 @@ class SDTS(Scheduler):
                     # release edge resource
                     
                     # 更新server的下载完成时间
-                    server_id = self.gs(node).get_edge_id()
+                    server_id = self.gs(node).get_deploy_info("edge")["server_id"]
                     download_complete = self.cluster.get_download_complete(server_id)
                     self.cluster.set_download_complete(server_id, download_complete - self.func_edge_download[node][server_id])
 
                     # 释放占用的core的资源
-                    edge_parms = self.gs(node).edge_param
-                    self.cluster.release(edge_parms["id"], edge_parms["core"], edge_parms["t_prepare_start"] , edge_parms["t_execute_end"])
+                    edge_parms = self.gs(node).get_deploy_info("edge")
+                    self.cluster.release(edge_parms["server_id"], edge_parms["core_id"], edge_parms["t_execute_start"]-0 , edge_parms["t_execute_end"])
                     
                     # 清除edge deployment
-                    self.gs(node).clear_edge_deploy()
+                    self.gs(node).clear("edge")
 
     def output_scheduler_strategy(self):
         total_core_number = self.cluster.get_total_core_number()
@@ -259,13 +155,16 @@ class SDTS(Scheduler):
         sched_info = [[] for i in range(total_core_number)]
         cloud_deploy = []
         for j in range(len(self.strategy)):
-            if self.strategy[j].edge:
-                server_id = self.strategy[j].edge_param["id"]
-                core_id = self.strategy[j].edge_param["core"]
+            strategy = self.strategy[j]
+            if strategy.is_deploy("edge"):
+                info = strategy.get_deploy_info("edge")
+                server_id = info["server_id"]
+                core_id = info["core_id"]
                 pid = self.cluster.get_total_core_id(server_id, core_id)
-                sched_info[pid].append({"func": j, "start": self.strategy[j].edge_param["t_execute_start"]})
-            if self.strategy[j].cloud:
-                cloud_deploy.append({"func":j, "start": self.strategy[j].cloud_param["start"], "end": self.strategy[j].cloud_param["end"]})
+                sched_info[pid].append({"func": j, "start": info["t_execute_start"]})
+            if strategy.is_deploy("cloud"):
+                info = strategy.get_deploy_info("cloud")
+                cloud_deploy.append({"func":j, "start": info["t_execute_start"], "end": info["t_execute_end"]})
         
         cloud_deploy = sorted(cloud_deploy, key=lambda x: x["start"])
         cloud_core_number = self.cluster.get_core_number(self.get_cloud_id())
@@ -306,8 +205,6 @@ class SDTS(Scheduler):
         
         return replica, place, download_sequence
             
-
-
     def schedule(self):
         G = self.G
         func_process = self.func_process
@@ -324,13 +221,13 @@ class SDTS(Scheduler):
         
         while not L.empty():
             _, v = L.get()
+            if v in self.is_scheduler: continue
             if v == 0 or v == N - 1:
                 if v == 0:
-                    self.gs(v).deploy_in_edge(server=self.generate_pos, core=0,t_execute_start=0, t_execute_end=0)
+                    self.gs(v).deploy("edge", server_id=self.generate_pos, core_id=0,t_execute_start=0, t_execute_end=0)
                 else:
-                    self.gs(v).deploy_in_edge(server=self.generate_pos) # 预deploy，否则get_input_ready找不到
-                    t_i = self.get_input_ready(v, self.pos_edge)
-                    self.gs(v).deploy_in_edge(server=self.generate_pos, core=0, t_execute_start=t_i, t_execute_end=t_i)
+                    t_i = self.get_input_ready(v, "edge", self.generate_pos)
+                    self.gs(v).deploy("edge", server_id=self.generate_pos, core_id=0, t_execute_start=t_i, t_execute_end=t_i)
                 self.G_.add_edge(v, self.G_end)
             else:
                 # 根据EST调度
@@ -338,8 +235,8 @@ class SDTS(Scheduler):
                 
                 # 根据cloud clone
                 # t_i_c = self.get_input_ready_for_cloud(v)
-                t_i_c = self.get_input_ready(v, self.pos_cloud)
-                self.gs(v).deploy_in_cloud(t_i_c, t_i_c + func_process[v][-1])
+                t_i_c = self.get_input_ready(v, "cloud", self.get_cloud_id())
+                self.gs(v).deploy("cloud", self.get_cloud_id(), 0, t_i_c, t_i_c + func_process[v][-1])
                 # TODO. 如何管理cloud的资源
                 self.G_.add_edge(v, self.G_end)
                 self.G_.add_edge(-v, self.G_end)

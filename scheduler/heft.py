@@ -1,7 +1,6 @@
 from .scheduler import Scheduler
 from heft import heft, gantt
 import numpy as np
-from strategy import SchedStrategy
 import networkx as nx
 from util import *
 

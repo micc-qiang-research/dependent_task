@@ -1,79 +1,49 @@
-from cluster import Core
-
-class SchedStrategy:
+class Strategy:
     def __init__(self, func, N):
-        self.edge = False
-        self.cloud = False
-        self.user = False
         self.func = func # 记录是哪个函数的策略
         self.N = N # 函数个数
-
-    def deploy_in_edge(self, server, core = None, \
-        t_download_start = None, t_download_end = None, \
-        t_prepare_start = None,  t_prepare_end = None, \
-        t_execute_start = None, t_execute_end = None):
-        self.edge = True
-        self.edge_param = {
-            "id": server,
-            "core": core,
-            "t_download_start": t_download_start,
-            "t_download_end": t_download_end,
-            "t_prepare_start": t_prepare_start,
-            "t_prepare_end": t_prepare_end,
+        self.deployment = {}
+    
+    def __get_a_deployment(self,server_id, core_id=None, t_execute_start=None, t_execute_end=None,t_download_start=0, t_download_end=0):
+        return {
+            "valid": True,
+            "server_id": server_id,
+            "core_id": core_id,
             "t_execute_start": t_execute_start,
             "t_execute_end": t_execute_end,
-        }
-    
-    def clear_edge_deploy(self):
-        self.edge = False
-
-    def deploy_in_cloud(self, t_start, t_end):
-        self.cloud = True
-        self.cloud_param = {
-            "start": t_start,
-            "end": t_end
+            "t_download_start": t_download_start,
+            "t_download_end": t_download_end
         }
 
-    def clear_cloud_deploy(self):
-        self.cloud = False
+    def is_deploy(self, name):
+        if name not in self.deployment or not self.deployment[name]['valid']:
+            return False
+        return True
+        
+    def clear(self, name):
+        if self.is_deploy(name):
+            self.deployment[name]['valid'] = False
 
-    def get_edge_id(self):
-        if not self.edge:
-            # assert False, "no edge deploy"
-            raise Exception("no edge deploy")
-        return self.edge_param["id"]
+    def deploy(self, name, server_id, core_id=None, t_execute_start=None, t_execute_end=None,t_download_start=0, t_download_end=0):
+        self.deployment[name] = self.__get_a_deployment(server_id, core_id, t_execute_start, t_execute_end, t_download_start, t_download_end)
 
-    def get_edge_start(self):
-        if not self.edge:
-            raise Exception("no edge deploy")
-        return self.edge_param["t_execute_start"]
-
-    def get_edge_end(self):
-        if not self.edge:
-            raise Exception("no edge deploy")
-        return self.edge_param["t_execute_end"]
-
-    def get_cloud_start(self):
-        if not self.cloud:
-           raise Exception("no cloud deploy")
-        return self.cloud_param["start"]
-
-    def get_cloud_end(self):
-        if not self.cloud:
-            raise Exception("no cloud deploy")
-        return self.cloud_param["end"]
-
-    def debug(self):
-        print("*"*20)
-        print("func: " + str(self.func))
-        if self.edge:
-            print("edge: " + str(self.edge_param))
-        if self.cloud:
-            print("cloud: " + str(self.cloud_param))
-        if self.user:
-            print("user: " + str(self.user_param))
+    def get_deploy_info(self, name):
+        assert self.is_deploy(name), "not deploy"
+        return self.deployment[name]
     
-    def debug_readable(self, cluster):
+    def get_all_deploys(self):
+        return list(self.deployment.values())
+    
+    def get_all_deploys_names(self):
+        return list(self.deployment.keys())
+
+    def get_name(self,server_id, core_id):
+        return "server_" + str(server_id) + "_" + str(core_id)
+
+    def get_download_name(self, server_id):
+        return "server_" + str(server_id) + "_d"
+
+    def debug_readable(self):
         from util import colors, prepare_color, download_color, user_color
         func = self.func
         if func != 0 and func != self.N - 1:
@@ -81,25 +51,18 @@ class SchedStrategy:
                 assert False, "too many function"
             else:
                 func_color = colors[func - 1]
+        else:
+            func_color = user_color
         bars = ""
 
         str_json = "{{\"row\": \"{}\", \"from\": {}, \"to\": {}, \"color\": \"{}\"}},"
-        if self.edge:
-            name = "edge_" + str(self.edge_param["id"]) + "_" + str(self.edge_param["core"])
-            name_download = "edge_" + str(self.edge_param["id"]) + "_d"
+        for deploy in self.get_all_deploys():
+            name = self.get_name(deploy["server_id"], deploy["core_id"])
+            name_download = self.get_download_name(deploy["server_id"])
             # download 
-            bars = bars + str_json.format(name_download, self.edge_param["t_download_start"], self.edge_param["t_download_end"], download_color)
-
-            # prepare
-            bars = bars + str_json.format(name, self.edge_param["t_prepare_start"], self.edge_param["t_prepare_end"], prepare_color)
+            bars = bars + str_json.format(name_download, deploy["t_download_start"], deploy["t_download_end"], download_color)
             
             # exec
-            bars = bars + str_json.format(name, self.edge_param["t_execute_start"], self.edge_param["t_execute_end"], func_color)
-        if self.cloud:
-            name = cluster.get_cloud_core_name(self.cloud_param["start"], self.cloud_param["end"])
-
-            bars = bars + str_json.format(name, self.cloud_param["start"], self.cloud_param["end"], func_color)
-        if self.user:
-            bars = bars + str_json.format("user", self.user_param["start"], self.user_param["end"]+1e-2, user_color)
+            bars = bars + str_json.format(name, deploy["t_execute_start"], deploy["t_execute_end"], func_color)
         
         return bars
