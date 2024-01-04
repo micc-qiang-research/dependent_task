@@ -63,20 +63,6 @@ class SchedStrategy:
             raise Exception("no cloud deploy")
         return self.cloud_param["end"]
 
-    def deploy_in_user(self, start, end):
-        assert self.func == 0 or self.func == self.N-1, "not source or sink"
-        self.user = True
-        self.user_param = {
-            "start": start,
-            "end": end
-        }
-        assert start == end, "user deploy error"
-
-    def get_user_end(self):
-        if not self.user:
-            assert False, "no user deploy"
-        return self.user_param["end"]
-
     def debug(self):
         print("*"*20)
         print("func: " + str(self.func))

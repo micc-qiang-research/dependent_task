@@ -20,18 +20,15 @@ class Scheduler(metaclass=ABCMeta):
         self.G = self.data.G
         self.func_process = np.array(self.data.func_process) # 函数执行时间
         self.server_comm = np.array(self.data.server_comm) # 服务器之间的通信时间
+        self.generate_pos = self.data.generate_pos # dag生成位置
         self.funcs = self.data.funcs
         self.servers = self.data.servers
         self.layers = self.data.layers
         self.func_startup = np.array(self.data.func_startup) # 函数环境大小
 
-        self.func_download_time = self.get_func_download_time(self.func_startup, np.array([s.download_latency for s in self.servers])) # 函数在各个边缘下载时间
         self.strategy = [SchedStrategy(i, self.data.N) for i in range(self.data.N)] # 任务放置的服务器、核、开始时间、结束时间
 
         self.cluster = Cluster([i.core for i in self.servers])
-
-        self.pos_edge = 1
-        self.pos_cloud = 2
 
     ########## deploy strategy 得到某个func的部署edge位置
     # function strategy
@@ -44,121 +41,9 @@ class Scheduler(metaclass=ABCMeta):
     def get_weight(self, s, d):
         res = self.G.edges[s,d]["weight"]
         return res
-
-    # 根据函数环境大小即边缘带宽，计算下载时间
-    def get_func_download_time(self, func_startup, edge_bandwith):
-        return (np.tile(func_startup.reshape(len(func_startup), 1), (1, self.data.K)).T * edge_bandwith.reshape(-1,1)).T
     
     def get_cloud_id(self):
         return self.K-1
-
-
-    # 获取s1和s2之间的带宽，若s为-1，则代表user
-    def get_comm(self, s1, s2):
-        from enum import Enum
-        class ServerType(Enum):
-            USER = 1
-            EDGE = 2
-            CLOUD = 3
-        def get_type(s):
-            if s == -1:
-                return ServerType.USER
-            elif s == self.K - 1:
-                return ServerType.CLOUD
-            else:
-                return ServerType.EDGE
-        
-        t1 = get_type(s1)
-        t2 = get_type(s2)
-        match t1:
-            case ServerType.USER:
-                match t2:
-                    case ServerType.USER:
-                        assert False, "user <-> user get_comm error"
-                    case ServerType.EDGE:
-                        return self.ue_comm[s2]
-                    case ServerType.CLOUD:
-                        return self.uc_comm
-            case ServerType.EDGE:
-                match t2:
-                    case ServerType.USER:
-                        return self.ue_comm[s1]
-                    case ServerType.EDGE:
-                        return self.server_comm[s1][s2]
-                    case ServerType.CLOUD:
-                        return self.server_comm[s1][self.K - 1]
-            case ServerType.CLOUD:
-                match t2:
-                    case ServerType.USER:
-                        return self.uc_comm
-                    case ServerType.EDGE:
-                        return self.server_comm[s2][self.K - 1]
-                    case ServerType.CLOUD:
-                        return 0
-        assert False, "never been there"
-
-    """
-        func1部署在pos1，func2部署在pos2，计算func1的数据传输到func2的时间
-        
-        is_err表示pos1没有func1时是否报错
-    """
-    def input_ready(self, func1, func2, pos1, pos2, is_err=True):
-        weight = self.get_weight(func1, func2)
-        try:
-
-            match pos1:
-                case self.pos_user:
-                    assert func1 == self.source, "error"
-                    match pos2:
-                        case self.pos_user: # user -> user
-                            assert False, "error"
-                        case self.pos_cloud: # user -> cloud
-                            return self.uc_comm * weight
-                        case self.pos_edge: # user -> edge
-                            server = self.gs(func2).get_edge_id()
-                            return self.ue_comm[server] * weight
-                case self.pos_edge:
-                    match pos2:
-                        case self.pos_user: # edge -> user
-                            assert func2 == self.sink, "error"
-                            server = self.gs(func1).get_edge_id()
-                            return self.gs(func1).get_edge_end() + self.ue_comm[server] * weight
-                        case self.pos_cloud: # edge -> cloud
-                            server = self.gs(func1).get_edge_id()
-                            return self.gs(func1).get_edge_end() + self.server_comm[server][self.K - 1] * weight
-                        case self.pos_edge: # edge -> edge
-                            s1 = self.gs(func1).get_edge_id()
-                            s2 = self.gs(func2).get_edge_id()
-                            return self.gs(func1).get_edge_end() + self.server_comm[s1][s2] * weight
-                case self.pos_cloud:
-                    match pos2:
-                        case self.pos_user: # cloud -> user
-                            return self.gs(func1).get_cloud_end() + self.uc_comm * weight
-                        case self.pos_cloud: # cloud -> cloud
-                            return self.gs(func1).get_cloud_end()
-                        case self.pos_edge: # cloud -> edge
-                            server = self.gs(func2).get_edge_id()
-                            return self.gs(func1).get_cloud_end() + self.server_comm[server][self.K-1]
-                case _:
-                    assert False, "input ready error"
-        except Exception as e:
-            if is_err:
-                raise e
-            else:
-                return math.inf
-
-    def get_input_ready(self, func2, pos2, is_err=True):
-        res = 0
-        for i in self.G.predecessors(func2):
-            if i == self.source:
-                v = self.input_ready(i, func2, self.pos_user, pos2, is_err)
-            else:
-                v = min(
-                    self.input_ready(i, func2, self.pos_edge, pos2, is_err),
-                    self.input_ready(i, func2, self.pos_cloud, pos2, is_err),
-                )
-            res = max(v, res)
-        return res
     
     '''
     将调度算法策略转换为本项目策略
@@ -270,7 +155,7 @@ class Scheduler(metaclass=ABCMeta):
         draw_gantt()
 
     def get_total_time(self):
-        return self.gs(self.sink).get_user_end()
+        return self.gs(self.sink).get_edge_end()
 
     def show_result(self, name):
         print("total time: {:.2f}".format(self.get_total_time()))

@@ -28,6 +28,14 @@ class Core:
     def is_occupy(self, start, end) -> bool:
         i = P.closedopen(start, end)
         return not self.interval.contains(i)
+    
+    def find_est(self, size) -> bool:
+        size = round(size+0.01, 2)
+        for i in self.interval:
+            if i.upper >= size + i.lower:
+                return i.lower
+        assert False, "never be there"
+
 
     def __repr__(self):
         return self.interval.__str__()
@@ -38,10 +46,10 @@ class Core:
     def __iter__(self):
         return self.interval.__iter__()
         
-class EdgeServer:
-    def __init__(self, idx, core):
+class Server:
+    def __init__(self, idx, core_number):
         self.idx = idx
-        self.cores = [Core(i) for i in range(core)]
+        self.cores = [Core(i) for i in range(core_number)]
         self.download_complete = 0
 
     # 在某个核上查找任务最早开始时间
@@ -61,14 +69,13 @@ class EdgeServer:
                 early_core = core
         return early_core, start_time
 
-    def get_cores(self, core_id):
+    def get_core(self, core_id):
         return self.cores[core_id]
 
 
-    def place(self, core, start, end):
-        idx = core.idx
-        print(f"edge[{self.idx}-{idx}] occupy: {start}-{end}")
-        self.cores[idx].occupy(start, end)
+    def place(self, core_id, start, end):
+        print(f"edge[{self.idx}-{core_id}] occupy: {start}-{end}")
+        self.cores[core_id].occupy(start, end)
 
     def release(self, core_id, start, end):
         print(f"edge[{self.idx}-{core_id}] release: {start}-{end}")
@@ -76,73 +83,79 @@ class EdgeServer:
 
 
 class Cluster:
-    def __init__(self, cores):
-        self.K = len(cores)
-        self.cores = cores
-        self.edge_server = [EdgeServer(i, cores[i]) for i in range(self.K)]
+    def __init__(self, cores_number_array):
+        self.K = len(cores_number_array)
+        self.cores_number_array = cores_number_array
+        self.servers = [Server(i, cores_number_array[i]) for i in range(self.K)]
 
         self.server_name = []
         for i in range(self.K):
-            self.server_name.append(f"edge_{i}_d")
-            for j in range(cores[i]):
-                self.server_name.append(f"edge_{i}_{j}")
+            self.server_name.append(f"server_{i}_d")
+            for j in range(cores_number_array[i]):
+                self.server_name.append(f"server_{i}_{j}")
 
     def get_total_core_number(self):
-        return sum(self.cores)
+        return sum(self.cores_number_array)
     
     def get_core_number(self, server_id):
-        return self.cores[server_id]
+        return self.cores_number_array[server_id]
     
     def get_server_by_core_id(self, core_id):
-        for i, core in enumerate(self.cores):
-            if core_id < core:
+        for i, core_number in enumerate(self.cores_number_array):
+            if core_id < core_number:
                 return i, core_id
-            core_id -= core
+            core_id -= core_number
         assert False, "core_id is too big"
+
+    def get_total_core_id(self, server_id, core_id):
+        res = 0
+        for i in range(server_id):
+            res += self.cores_number_array[i]
+        return res + core_id
         
 
-    def get_edge_server(self):
-        return self.edge_server
+    def get_server(self):
+        return self.servers
 
     def get_download_complete(self, server_id):
-        return self.edge_server[server_id].download_complete
+        return self.servers[server_id].download_complete
 
     def set_download_complete(self, server_id, value):
-        self.edge_server[server_id].download_complete = value
+        self.servers[server_id].download_complete = value
 
-    def place(self, server_id, core, start, end):
-        self.edge_server[server_id].place(core, start, end)
+    def place(self, server_id, core_id, start, end):
+        self.servers[server_id].place(core_id, start, end)
 
-    def release(self, server_id, core, start, end):
-        self.edge_server[server_id].release(core, start, end)
+    def release(self, server_id, core_id, start, end):
+        self.servers[server_id].release(core_id, start, end)
 
     def get_core_EST(self, server_id, core_id, t_prepare, t_execute, t):
-        return self.edge_server[server_id].ESTfindByCore(t, t_prepare, t_execute, self.get_edge_server_core(server_id, core_id))
+        return self.servers[server_id].ESTfindByCore(t, t_prepare, t_execute, self.get_server_core(server_id, core_id))
 
-    def get_edge_server_core(self, server_id, core_id):
-        return self.edge_server[server_id].get_cores(core_id)
+    def get_server_core(self, server_id, core_id):
+        return self.servers[server_id].get_core(core_id)
 
-    def get_cloud_core_name(self, start, end):
-        if not hasattr(self, "cloud_core_number"):
-            self.cloud_core_number = 1
-            self.cloud_core_names = ["cloud_0_0"]
-            self.cloud_cores = [Core(0)]
+    # def get_cloud_core_name(self, start, end):
+    #     if not hasattr(self, "cloud_core_number"):
+    #         self.cloud_core_number = 1
+    #         self.cloud_core_names = ["cloud_0_0"]
+    #         self.cloud_cores = [Core(0)]
         
-        for i, core in enumerate(self.cloud_cores):
-            if core.is_occupy(start, end):
-                continue
-            else:
-                core.occupy(start, end)
-                return self.cloud_core_names[i]
+    #     for i, core in enumerate(self.cloud_cores):
+    #         if core.is_occupy(start, end):
+    #             continue
+    #         else:
+    #             core.occupy(start, end)
+    #             return self.cloud_core_names[i]
         
-        # add new core
-        self.cloud_core_names.append("cloud_0_" + str(self.cloud_core_number))
-        self.cloud_cores.append(Core(self.cloud_core_number))
-        self.cloud_core_number += 1
-        self.cloud_cores[-1].occupy(start, end)
-        return self.cloud_core_names[-1]
+    #     # add new core
+    #     self.cloud_core_names.append("cloud_0_" + str(self.cloud_core_number))
+    #     self.cloud_cores.append(Core(self.cloud_core_number))
+    #     self.cloud_core_number += 1
+    #     self.cloud_cores[-1].occupy(start, end)
+    #     return self.cloud_core_names[-1]
 
-    def get_names(self):
-        if hasattr(self, "cloud_core_number"):
-            return self.cloud_core_names + self.server_name
-        return self.server_name
+    # def get_names(self):
+    #     if hasattr(self, "cloud_core_number"):
+    #         return self.cloud_core_names + self.server_name
+    #     return self.server_name
