@@ -26,7 +26,8 @@ class Analysis(Executor):
         # 指定seq
         if self.download_sequence:
             # 层下载完成时间
-            if not hasattr(self, "layer_download_complete"):
+            if not hasattr(self, "server_layer_download"):
+                self.server_layer_download = []
                 for seq in self.download_sequence:
                     self.layer_download_complete = [math.inf for i in range(self.L)]
                     download_time = 0
@@ -34,25 +35,26 @@ class Analysis(Executor):
                         size = self.layers[layer].size
                         download_time += size * self.servers[server_id].download_latency
                         self.layer_download_complete[layer] = download_time
+                    self.server_layer_download.append(self.layer_download_complete)
             st = 0
             res = -1
             for layer in self.funcs[func_id].layer:
-                if self.layer_download_complete[layer] == math.inf:
+                if self.server_layer_download[server_id][layer] == math.inf:
                     assert False, f"server {server_id} need layer {layer}"
-                if res < self.layer_download_complete[layer]:
-                    res = self.layer_download_complete[layer]
+                if res < self.server_layer_download[server_id][layer]:
+                    res = self.server_layer_download[server_id][layer]
         # 未指定seq
         else:
-            if not hasattr(self, "layer_download_complete"):
-                self.layer_download_complete = [math.inf for i in range(self.L)]
+            if not hasattr(self, "server_layer_download"):
+                self.server_layer_download = [[math.inf for j in range(self.L)] for i in range(self.K)]
             
             res = -1
             for layer in self.funcs[func_id].layer:
-                if self.layer_download_complete[layer] == math.inf:
+                if self.server_layer_download[server_id][layer] == math.inf:
                     self.cluster.set_download_complete(server_id, self.cluster.get_download_complete(server_id)+self.layers[layer].size * self.servers[server_id].download_latency)
-                    self.layer_download_complete[layer] = self.cluster.get_download_complete(server_id)
-                if res < self.layer_download_complete[layer]:
-                    res = self.layer_download_complete[layer]
+                    self.server_layer_download[server_id][layer] = self.cluster.get_download_complete(server_id)
+                if res < self.server_layer_download[server_id][layer]:
+                    res = self.server_layer_download[server_id][layer]
         return st, res
 
     def showGantt(self, name):
@@ -64,14 +66,14 @@ class Analysis(Executor):
 
     def execute(self):
         for func,procs in self.gen_strategy(self.place):
-            for proc in procs:
+            for idx,proc in enumerate(procs):
                 if func == self.source:
                     self.gs(func).deploy("edge", self.generate_pos, 0,0,0,0,0)
                 elif func == self.sink:
                     t_i = self.get_input_ready(func, "edge", self.generate_pos)
                     self.gs(func).deploy("edge", self.generate_pos, 0, t_i, t_i, t_i, t_i)
                 else:
-                    pos = "edge"
+                    pos = f"edge_{idx}"
                     if proc >= self.cloud_start_core_number:
                         pos = "cloud"
                     server_id, core_id = self.cluster.get_server_by_core_id(proc)

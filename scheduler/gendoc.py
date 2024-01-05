@@ -184,6 +184,7 @@ class GenDoc(Scheduler):
             place[core_index[server]].append(func)
             core_index[server] += 1
             core_index[server] %= self.cluster.get_core_number(server)
+        # place = [[0,1],[3],[1,2],[2]]
         return replica, place, download_sequence, Executor.TOPOLOGY
 
     def schedule(self):

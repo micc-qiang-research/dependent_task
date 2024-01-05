@@ -71,13 +71,9 @@ class Executor:
         self.gs(func2).deploy(pos2, server_id) # 模拟
         res = 0
         for i in self.G.predecessors(func2):
-            if i == self.source:
-                v = self.input_ready(i, func2, "edge", pos2)
-            else:
-                v = min(
-                    self.input_ready(i, func2, "edge", pos2),
-                    self.input_ready(i, func2, "cloud", pos2),
-                )
+            v = 1e10
+            for pos in self.gs(i).get_all_deploys_names():
+                v = min(v, self.input_ready(i, func2, pos, pos2))
             res = max(v, res)
         self.gs(func2).clear(pos2)
         return res
@@ -138,54 +134,6 @@ class Executor:
         func = list(nx.topological_sort(self.G))
         for f in func:
             yield f,find_pos(f)
-    
-    def trans_strategy(self, strategy):
-        
-
-        for func,procs in strategy:
-            for proc in procs:
-                if func == self.source:
-                    self.gs(func).deploy_in_user(0, 0)
-                elif func == self.sink:
-                    t_i = self.get_input_ready(func, self.pos_user, False)
-                    self.gs(func).deploy_in_user(t_i, t_i)
-                elif proc >= self.cluster.get_total_core_number():
-                    server_id = self.get_cloud_id()
-                    t_start = self.get_input_ready(func, self.pos_cloud, False)
-                    t_end = t_start + self.func_process[func][server_id]
-                    self.gs(func).deploy_in_cloud(t_start, t_end)
-                else:
-                    server_id, core_id = self.cluster.get_server_by_core_id(proc)
-
-                    # 环境准备好时间
-                    t_e = self.cluster.get_download_complete(server_id) + self.func_edge_download[func][server_id] + self.func_prepare[func]
-                    
-                    # 数据依赖准备好时间
-                    self.gs(func).deploy_in_edge(server_id) # 模拟
-                    t_i = self.get_input_ready(func, self.pos_edge, False)
-
-                    t = max(t_e, t_i)
-                    # 函数开始执行时间
-                    t_execute_start = self.cluster.get_core_EST(server_id, core_id, self.func_prepare[func], self.func_process[func][server_id],t)
-
-                    # 得到其他的衍生信息
-                    t_execute_end = t_execute_start + self.func_process[func][server_id]
-
-                    t_download_start = self.cluster.get_download_complete(server_id)
-                    t_download_end = t_download_start + self.func_edge_download[func][server_id]
-                    self.cluster.set_download_complete(server_id, t_download_end)
-
-                    t_prepare_start = t_execute_start - self.func_prepare[func]
-                    t_prepare_end = t_execute_start
-
-                    self.strategy[func].deploy_in_edge(server_id, core_id, \
-                        t_download_start=t_download_start, \
-                        t_download_end=t_download_end, \
-                        t_prepare_start=t_prepare_start, \
-                        t_prepare_end=t_prepare_end,\
-                        t_execute_start=t_execute_start, \
-                        t_execute_end=t_execute_end)
-                    self.cluster.place(server_id, self.cluster.get_edge_server_core(server_id, core_id), t_prepare_start, t_execute_end)
 
     # server含有哪些layer
     def __server_layer(self, server_id):
