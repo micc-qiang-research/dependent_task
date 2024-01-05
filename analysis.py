@@ -12,6 +12,7 @@ class Analysis(Executor):
         self.replica = replica
         self.place = place
         self.download_sequence = download_sequence
+        self.gen_strategy = self.get_gen_strategy(gen_strategy)
 
         self.cloud_start_core_number = self.cluster.get_total_core_number() - self.servers[-1].core
 
@@ -62,7 +63,7 @@ class Analysis(Executor):
         draw_gantt()
 
     def execute(self):
-        for func,procs in self.dumb_gen_strategy(self.place):
+        for func,procs in self.gen_strategy(self.place):
             for proc in procs:
                 if func == self.source:
                     self.gs(func).deploy("edge", self.generate_pos, 0,0,0,0,0)

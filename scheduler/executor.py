@@ -7,6 +7,16 @@ import networkx as nx
 class Executor:
     DUMB = 0
     TOPOLOGY = 1
+    def get_gen_strategy(self, strategy):
+        match(strategy):
+            case Executor.DUMB:
+                return self.dumb_gen_strategy
+            case Executor.TOPOLOGY:
+                return self.topology_gen_strategy
+            case _:
+                assert False, "gen_strategy error"
+
+
     def __init__(self, data):
         self.data = data
         self.read_info()
@@ -177,4 +187,48 @@ class Executor:
                         t_execute_end=t_execute_end)
                     self.cluster.place(server_id, self.cluster.get_edge_server_core(server_id, core_id), t_prepare_start, t_execute_end)
 
+    # server含有哪些layer
+    def __server_layer(self, server_id):
+        if not hasattr(self, "server_layer"):
+            self.server_layer = [set() for i in range(self.data.K)]
+        return self.server_layer[server_id]
     
+    # 添加一个layer
+    def __server_add_layer(self, server_id, layer_id):
+        if not hasattr(self, "server_layer"):
+            self.server_layer = [set() for i in range(self.data.K)]
+        self.server_layer[server_id].add(layer_id)
+        # assert sum([self.layers[l].size for l in self.server_layer[server_id]]) <= self.servers[server_id].storage, "out-of-store"
+
+    # 得到某台server空闲空间
+    def __server_free_storage_size(self, server_id, virtual_capacity=None):
+        capacity = self.servers[server_id].storage
+        if virtual_capacity:
+            capacity = virtual_capacity
+        return capacity - sum([self.layers[l].size for l in self.server_layer[server_id]])
+
+    # 判断server能否部署func
+    def is_func_can_deploy(self, server_id, func_id, virtual_capacity=None):
+        need_layer = self.funcs[func_id].layer - self.__server_layer(server_id)
+        if sum([self.layers[l].size for l in need_layer]) <= self.__server_free_storage_size(server_id,  virtual_capacity):
+            return True
+        return False
+    
+    def func_deploy(self, server_id, func_id):
+        need_layer = set(self.funcs[func_id].layer) - self.__server_layer(server_id)
+        for l in need_layer:
+            self.__server_add_layer(server_id, l)
+
+    # 部署函数然后检查是否超出限制
+    def func_deploy_and_check(self, server_id, func_id, virtual_capacity=None):
+        self.func_deploy(server_id, func_id)
+        return self.__server_free_storage_size(server_id, virtual_capacity) <= 0
+    
+    def get_server_deploy_size(self, server_id):
+        return sum([self.layers[l].size for l in self.__server_layer(server_id)])
+    
+    def get_func_total_size(self, func_id_arr):
+        layer = set()
+        for i in func_id_arr:
+            layer = layer.union(self.funcs[i].layer)
+        return sum([self.layers[l].size for l in layer])
