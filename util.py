@@ -2,6 +2,11 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 from queue import PriorityQueue
+import pandas as pd
+import numpy as np
+import os
+
+result_path = "./__result__/"
 
 colors = [
     "#E6194B",
@@ -95,7 +100,7 @@ def output_gantt_json(name, rows, bars, finish_time):
 }}
     """
 
-    with open("gantt.json", "w") as f:
+    with open(os.path.join(result_path,"gantt.json"), "w") as f:
         f.write(template.format(name, legend, rows, bars, finish_time))
 
 
@@ -103,7 +108,53 @@ def draw_gantt(file="gantt.json"):
     import json
     from lib.ganttify.ganttify import Ganttify
 
-    json_obj = json.load(open(file))
+    json_obj = json.load(open(os.path.join(result_path,file)))
 
     gantt = Ganttify(json_obj)
     gantt.run()
+
+
+def np_to_csv(data, path):
+    pd.DataFrame(data).to_csv(path, index=None, header=None)
+
+def prepare_draw_cdf(data):
+    assert len(data) >= 2, "unmatched data length"
+    ds = []
+    prob = []
+    inc = 100. / len(data[0])
+    k = inc
+    for i in range(len(data[0])):
+        prob.append(k)
+        k += inc
+    ds.append(prob)
+    for i in data:
+        ds.append(sorted(i))
+    ds = np.array(ds).T
+    np_to_csv(ds, os.path.join(result_path, "lat_cdf.csv"))
+
+# draw_cdf(2, ["RS", "RS+UPL"], "lat_cdf.csv")
+
+def draw_cdf(n, label, filename = "lat_cdf.csv"):
+    input_file = os.path.join(result_path,filename)
+    basename, _ = os.path.splitext(filename)
+    output_file = os.path.join(result_path,basename+".png")
+
+    #读取CSV文件
+    data = pd.read_csv(input_file)
+
+    prob = data.iloc[:,0]
+    for i in range(n):
+        delays = data.iloc[:,i+1]
+        plt.plot(delays, prob, label=label[i])
+
+    #设置图表属性
+    plt.xlabel('Latency')
+    plt.ylabel('CDF') 
+    # plt.xlim(0,80000)
+    plt.legend()
+    # plt.show()
+    plt.savefig(output_file)
+
+
+def get_in_result_path(filename):
+    return os.path.join(result_path, filename)

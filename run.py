@@ -50,7 +50,7 @@ if __name__ == '__main__':
     if config.dag:
         draw_dag(data.G)
     scheduler :Scheduler = eval(config.scheduler)(data,config)
-    Analysis(data, *scheduler.schedule(), config=config)
+    Analysis(data, *scheduler.schedule(), config=config).summarize()
     # except Exception as e:
     #     print(e)
     #     exit(1)

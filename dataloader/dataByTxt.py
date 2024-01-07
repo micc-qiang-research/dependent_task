@@ -42,7 +42,7 @@ class DataSource:
 
 
 class DataByTxt(Data):
-    @Data.check(True)
+    @Data.check()
     def __init__(self, path):
         self.read_data(path)
 

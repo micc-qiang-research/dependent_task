@@ -18,7 +18,7 @@ class Analysis(Executor):
         self.cloud_start_core_number = self.cluster.get_total_core_number() - self.servers[-1].core
 
         self.execute()
-        self.summarize()
+        # self.summarize()
         
 
     # 返回开始下载时间和结束下载时间
@@ -112,6 +112,8 @@ class Analysis(Executor):
                     self.cluster.place(server_id, core_id, t_execute_start, t_execute_end)
 
     def summarize(self):
-        print(self.get_makespan())
+        self.makespan = self.get_makespan()
+        print(self.makespan)
         if self.config and self.config.gantta:
             self.showGantt(self.config.scheduler)
+        return self.makespan

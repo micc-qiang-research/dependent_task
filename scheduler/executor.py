@@ -83,7 +83,7 @@ class Executor:
         return (np.tile(func_startup.reshape(len(func_startup), 1), (1, self.data.K)).T * edge_bandwith.reshape(-1,1)).T
     
     def get_makespan(self):
-        return self.gs(self.sink).get_deploy_info("edge")["t_execute_end"]
+        return round(self.gs(self.sink).get_deploy_info("edge")["t_execute_end"],2)
     
     '''
     将调度算法策略转换为本项目策略
@@ -115,11 +115,11 @@ class Executor:
             for i,s in enumerate(raw_strategy):
                 if pos[i] >= len(s):
                     continue
-                for j in range(pos[i], len(s)):
-                    if set(self.G.predecessors(s[j])).issubset(finished_func):
-                        pos[i] = j + 1
-                        finished_func.add(s[j])
-                        yield s[j],[i]
+                j = pos[i]
+                if set(self.G.predecessors(s[j])).issubset(finished_func):
+                    pos[i] = j + 1
+                    finished_func.add(s[j])
+                    yield s[j],[i]
     
     # 按拓扑排序返回函数
     def topology_gen_strategy(self, raw_strategy):

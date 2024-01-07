@@ -74,11 +74,11 @@ class Server:
 
 
     def place(self, core_id, start, end):
-        print(f"edge[{self.idx}-{core_id}] occupy: {start}-{end}")
+        # print(f"edge[{self.idx}-{core_id}] occupy: {start}-{end}")
         self.cores[core_id].occupy(start, end)
 
     def release(self, core_id, start, end):
-        print(f"edge[{self.idx}-{core_id}] release: {start}-{end}")
+        # print(f"edge[{self.idx}-{core_id}] release: {start}-{end}")
         self.cores[core_id].release(start, end)
 
 

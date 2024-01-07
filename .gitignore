@@ -3,4 +3,5 @@ test/
 gantt.json
 data.json
 dag/
-data/json/
+data/json*
+__result__

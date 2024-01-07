@@ -2,6 +2,7 @@ import numpy as np
 import json
 from glob import glob
 from os import path
+from collections.abc import Iterable
 
 _t = 1 # 平均执行时间， cloud: 0.75t
 _b = 1 # 下载镜像的延迟 cloud: 0.5b
@@ -14,24 +15,37 @@ import pydot
 import numpy as np
 from random import randint, gauss
 
+def round_2(f):
+    def wrapper(*args, **kwargs):
+        res = f(*args, **kwargs)
+        if isinstance(res, Iterable):
+            return [round(r, 2) for r in res]
+        return round(res, 2)
+    return wrapper
 
+@round_2
 def get_computation_time(size=1):
     return np.random.uniform(0.5*_t, 1.5*_t, size=size).tolist()
 
+@round_2
 def get_node_weight():
     return np.random.uniform(0.5*_e, 1.5*_e)
 
+@round_2
 def get_download_latency():
     return np.random.uniform(0.5*_b, 1.5*_b)
 
+@round_2
 def get_commucation_time(ccr=0.5):
     _d = ccr * _t / _e
     return np.random.uniform(0.5*_d, 1.5*_d)
 
+@round_2
 def get_layer_size(size=1):
     return np.random.uniform(0.5*_l, 1.5*_l, size=size).tolist()
 
 # 随机生成函数依赖的镜像块信息
+@round_2
 def get_layer_info(L=10, dcr=5):
     dcr = dcr / _l
     size = max(min(int(np.random.normal(dcr, dcr/3)),L),1)
