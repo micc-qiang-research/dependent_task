@@ -6,19 +6,20 @@ from scheduler.executor import Executor
 from strategy import Strategy
 
 class Analysis(Executor):
-    def __init__(self, data, replica, place, download_sequence, gen_strategy = Executor.DUMB):
+    def __init__(self, data, replica, place, download_sequence, gen_strategy = Executor.DUMB, config = None):
         super().__init__(data)
         self.data = data
         self.replica = replica
         self.place = place
         self.download_sequence = download_sequence
         self.gen_strategy = self.get_gen_strategy(gen_strategy)
+        self.config = config
 
         self.cloud_start_core_number = self.cluster.get_total_core_number() - self.servers[-1].core
 
         self.execute()
-        print(self.get_makespan())
-        self.showGantt("SDTS")
+        self.summarize()
+        
 
     # 返回开始下载时间和结束下载时间
     def download_layer(self, server_id, func_id):
@@ -109,3 +110,8 @@ class Analysis(Executor):
                         t_execute_end=t_execute_end)
                     
                     self.cluster.place(server_id, core_id, t_execute_start, t_execute_end)
+
+    def summarize(self):
+        print(self.get_makespan())
+        if self.config and self.config.gantta:
+            self.showGantt(self.config.scheduler)

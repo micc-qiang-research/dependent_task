@@ -2,3 +2,5 @@ test/
 .vscode/
 gantt.json
 data.json
+dag/
+data/json/

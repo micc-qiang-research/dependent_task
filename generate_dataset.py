@@ -1,5 +1,7 @@
 import numpy as np
 import json
+from glob import glob
+from os import path
 
 _t = 1 # 平均执行时间， cloud: 0.75t
 _b = 1 # 下载镜像的延迟 cloud: 0.5b
@@ -135,7 +137,17 @@ def build_data(filename, K=3, L=10, ccr=0.5, dcr=5):
 
 
 if __name__ == "__main__":
-    data = build_data('dag/10_0.1_0.2_0.2_1.dot')
-    separators = (',', ':')
-    with open("data.json", "w") as f:
-        json.dump(data, f, indent=2, separators=separators)
+    # data = build_data('dag/10_0.1_0.2_0.2_1.dot')
+    # separators = (',', ':')
+    # with open("data.json", "w") as f:
+    #     json.dump(data, f, indent=2, separators=separators)
+
+    output_dir = "./data/json/"
+    
+    filenames = glob('dag/*.dot')
+    
+    for filename in filenames:
+        data = build_data(filename)
+        separators = (',', ':')
+        with open(path.join(output_dir, path.basename(filename)[:-3])+"json", "w") as f:
+            json.dump(data, f, indent=2, separators=separators)
