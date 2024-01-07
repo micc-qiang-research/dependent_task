@@ -55,7 +55,7 @@ class DataByTxt(Data):
         self.func_info = []
         for i in range(self.N):
             # layer_info + func_prepare
-            self.func_info.append(([int(i) for i in data.get(str).split(",")],0))
+            self.func_info.append([int(i) for i in data.get(str).split(",")])
 
         self.G = nx.DiGraph()
         edges_number = data.get(int)

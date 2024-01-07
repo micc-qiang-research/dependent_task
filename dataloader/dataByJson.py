@@ -8,7 +8,7 @@ class DataByJson(Data):
     def __init__(self, path):
         with open(path, "r") as f:
             self.__dict__ = json.load(f)
-            edges = self.G
+            edges = self.edge_list
             self.G = nx.DiGraph()
             self.G.add_weighted_edges_from(edges)
 

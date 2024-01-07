@@ -36,13 +36,19 @@ class Analysis(Executor):
                         download_time += size * self.servers[server_id].download_latency
                         self.layer_download_complete[layer] = download_time
                     self.server_layer_download.append(self.layer_download_complete)
-            st = 0
-            res = -1
+                for server_id in range(self.K):
+                    complete_time = max([self.server_layer_download[server_id][l] for l in range(self.L) if self.server_layer_download[server_id][l] != math.inf])
+                    self.cluster.set_download_complete(server_id, complete_time)
             for layer in self.funcs[func_id].layer:
                 if self.server_layer_download[server_id][layer] == math.inf:
                     assert False, f"server {server_id} need layer {layer}"
-                if res < self.server_layer_download[server_id][layer]:
-                    res = self.server_layer_download[server_id][layer]
+            # if st == 0:
+            #     res = self.cluster.get_download_complete(server_id)
+            # else:
+            #     res = st
+            st = 0
+            res = self.cluster.get_download_complete(server_id)
+            
         # 未指定seq
         else:
             if not hasattr(self, "server_layer_download"):
@@ -55,6 +61,8 @@ class Analysis(Executor):
                     self.server_layer_download[server_id][layer] = self.cluster.get_download_complete(server_id)
                 if res < self.server_layer_download[server_id][layer]:
                     res = self.server_layer_download[server_id][layer]
+            if res <= st:
+                res = st
         return st, res
 
     def showGantt(self, name):

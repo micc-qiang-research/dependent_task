@@ -39,7 +39,7 @@ class Executor:
         self.funcs = self.data.funcs
         self.servers = self.data.servers
         self.layers = self.data.layers
-        self.func_prepare = np.array([i.prepare for i in self.funcs]) # 函数环境准备时间
+        self.func_prepare = np.array([0 for i in self.funcs]) # 函数环境准备时间
         self.func_startup = np.array(self.data.func_startup) # 函数环境大小
 
     # 获取某个函数的调度决策

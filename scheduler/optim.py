@@ -21,8 +21,8 @@ class Optim(Scheduler):
         range_server = range(self.K)
         range_layer = range(self.L)
         
-        max_core_number = max([s.core for s in servers])
-        range_core = range(max_core_number)
+        self.max_core_number = max([s.core for s in servers])
+        range_core = range(self.max_core_number)
 
         self.range_func,self.range_server,self.range_layer,self.range_core = range_func,range_server,range_layer,range_core
 
@@ -91,10 +91,11 @@ class Optim(Scheduler):
         
         # 若某台机器没有那么多核，则强制h[i,n,c]=0
         for n in range_server:
-            if servers[n].core < max_core_number:
+            if servers[n].core < self.max_core_number:
                 mdl.add_constraints(h[i, n, c] == 0 \
-                        for i in range_func \
-                        for c in range(servers[n].core, max_core_number))
+                for i in range_func \
+                    for n in range_server \
+                        for c in range(servers[n].core, self.max_core_number))
         
         # 下面三条约束计算函数i和函数j之间的带宽
         mdl.add_constraints(XX[i,j,n,n_] >= (X[i,n]+X[j,n_]-1)/2\
@@ -224,8 +225,8 @@ class Optim(Scheduler):
         return mdl, solution
 
     def get_server_core(self, processor):
-        server_id = processor // self.data.K
-        core_id = processor % self.data.K
+        server_id = processor // self.max_core_number
+        core_id = processor % self.max_core_number
         assert core_id < self.data.server_info[server_id][0]
         return server_id, core_id
 

@@ -13,7 +13,6 @@ class SDTS(Scheduler):
         self.G_end = "end"
         
         self.func_edge_download = self.func_download_time[:,:-1] # sdts算法假设在cloud不需要环境准备时间
-        self.func_prepare = np.array([i.prepare for i in self.funcs])
         
         self.is_scheduler = set() # 目前已经调度的节点
 
@@ -128,7 +127,7 @@ class SDTS(Scheduler):
                 # print("--- remove node : ", node)
                 G_.remove_node(node) # 一个node代表一个部署到云或者边缘的策略
                 if node < 0:
-                    self.gs(-node).clear_cloud_deploy()
+                    self.gs(-node).clear("cloud")
                     # TODO cloud的resource如何管理？
                 else:
                     # release edge resource

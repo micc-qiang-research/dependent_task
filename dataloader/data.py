@@ -5,7 +5,7 @@ import json
 from typing import NamedTuple
 
 Server = NamedTuple("Server", [("core", int), ("storage", float), ("download_latency", float)])
-Func = NamedTuple("Func", [("layer", set),("prepare", float)])
+Func = NamedTuple("Func", [("layer", set)])
 Layer = NamedTuple("Layer", [("size", float)])
 
 class Data(metaclass=ABCMeta):
@@ -67,7 +67,7 @@ class Data(metaclass=ABCMeta):
                 assert len(self.layer_info) == self.L, "error"
                 assert 0 <= self.generate_pos < self.K, "error"
 
-                self.funcs = [Func(*f) for f in self.func_info]
+                self.funcs = [Func(f) for f in self.func_info]
                 self.servers = [Server(*s) for s in self.server_info]
                 self.layers = [Layer(l) for l in self.layer_info]
                 self.func_startup = []
