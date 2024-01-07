@@ -25,7 +25,8 @@ def solve(tuple_val):
     for _ in range(n_trials):
         try:
             data = DataByJson(filename) # read Data
-            scheduler = ["SDTS","GenDoc", "HEFT", "Optim"]
+            # scheduler = ["SDTS","GenDoc", "HEFT", "Optim"]
+            scheduler = ["SDTS"]
             for s in scheduler:
                 sched = eval(s)
                 param['makespan_'+s] = Analysis(data, *sched(data, None).schedule()).summarize()
@@ -57,7 +58,7 @@ n_trials = 1
 
 keys = ['n', 'fat', 'density', 'regularity', 'jump']
 
-filenames = glob('data/json.test/*.json')
+filenames = glob('data/json/*.json')
 
 cpu_cnt = 4
 

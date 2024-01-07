@@ -3,6 +3,7 @@ import math
 from strategy import Strategy
 from cluster import Cluster
 import networkx as nx
+import logging
 
 class Executor:
     DUMB = 0
@@ -17,13 +18,27 @@ class Executor:
                 assert False, "gen_strategy error"
 
 
-    def __init__(self, data):
+    def __init__(self, data, config):
         self.data = data
+        self.config = config
         self.read_info()
 
         self.cluster = Cluster([i.core for i in self.data.servers])
         self.strategy = [Strategy(i,self.data.N) for i in range(self.N)]
         self.func_download_time = self.get_func_download_time(self.func_startup, np.array([s.download_latency for s in self.servers])) # 函数在各个边缘下载时间
+        self.set_log()
+
+    def set_log(self):
+        self.logger = logging.getLogger("simulator")
+        self.logger.setLevel(logging.DEBUG)
+        handler1 = logging.StreamHandler()
+        # handler1.setLevel(logging.WARNING)
+        handler1.setLevel(logging.DEBUG)
+        # formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
+        # handler1.setFormatter(formatter)
+        if self.config:
+            handler1.setLevel(self.config.log_level)
+        self.logger.addHandler(handler1)
 
     # 从data中读数据
     def read_info(self):

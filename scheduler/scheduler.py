@@ -8,7 +8,7 @@ from .executor import Executor
 class Scheduler(Executor,metaclass=ABCMeta):
 
     def __init__(self,data,config):
-        super().__init__(data)
+        super().__init__(data, config)
         self.data = data
         self.config = config
 

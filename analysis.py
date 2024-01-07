@@ -7,7 +7,7 @@ from strategy import Strategy
 
 class Analysis(Executor):
     def __init__(self, data, replica, place, download_sequence, gen_strategy = Executor.DUMB, config = None):
-        super().__init__(data)
+        super().__init__(data, config)
         self.data = data
         self.replica = replica
         self.place = place

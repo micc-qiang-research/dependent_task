@@ -6,6 +6,7 @@ import argparse
 from types import SimpleNamespace
 import os
 from analysis import Analysis
+import logging
 
 def parse():
     parser = argparse.ArgumentParser()
@@ -20,6 +21,7 @@ def parse():
         "scheduler": args.scheduler,
         "gantta": args.gantta,
         "dag": args.dag,
+        "log_level": logging.DEBUG
     }
 
 def getFileType(file):

@@ -5,6 +5,7 @@ from util import *
 from .scheduler import Scheduler
 import math
 from cluster import Core
+from .executor import Executor
 
 class SDTS(Scheduler):
     def __init__(self, data, config):
@@ -34,7 +35,7 @@ class SDTS(Scheduler):
             for s in G.successors(v):
                 priority_dict[v] = max(priority_dict[v], self.get_weight( v, s) * d_mean + priority_dict[s])
             priority_dict[v] = priority_dict[v] + t_mean + t_d_mean
-        print(priority_dict)
+        self.logger.debug(priority_dict)
         return priority_dict
 
     def edge_server_selection(self, func, func_edge_download, func_prepare, func_process):
@@ -186,7 +187,7 @@ class SDTS(Scheduler):
                 choose = -1
                 size = deploy["end"] - deploy["start"]
                 for i, core in enumerate(cloud_cores):
-                    tmp = core.find_est(size)
+                    tmp = core.find_est(deploy["start"], size)
                     if tmp < est:
                         est = tmp
                         choose = i
@@ -198,11 +199,11 @@ class SDTS(Scheduler):
             for sched in sched_info[i]:
                 place[i].append(sched["func"])
 
-        print("replica? ",replica)
-        print("place: ", place)
-        print("download_sequence: ", download_sequence)
+        self.logger.debug(f"replica? {replica}")
+        self.logger.debug(f"place: {place}")
+        self.logger.debug(f"download_sequence: {download_sequence}")
         
-        return replica, place, download_sequence
+        return replica, place, download_sequence, Executor.DUMB
             
     def schedule(self):
         G = self.G

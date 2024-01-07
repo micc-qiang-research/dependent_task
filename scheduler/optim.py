@@ -248,8 +248,8 @@ class Optim(Scheduler):
             layers_priority = np.array(server_p).sum(axis=1)
             download_sequence.append(np.argsort(-layers_priority))
 
-        print(task_server_mapper)
-        print(download_sequence)
+        self.logger.debug(task_server_mapper)
+        self.logger.debug(download_sequence)
         self.task_server_mapper = task_server_mapper
         self.download_sequence = download_sequence
         # self.get_makespan(task_server_mapper, download_sequence)
@@ -257,24 +257,24 @@ class Optim(Scheduler):
 
     def parse(self, mdl, solution):
         if solution:
-            # print(solution)
+            # self.logger.debug(solution)
             h = []
             for i in self.range_func:
                 h_ = [[mdl.h[i,n,c].solution_value for c in self.range_core] for n in self.range_server]
-                print(f"h[{i}] = ")
-                print(np.array(h_))
+                self.logger.debug(f"h[{i}] = ")
+                self.logger.debug(np.array(h_))
                 h.append(h_)
 
             P = []
             for n in self.range_server:
                 P_ = [[mdl.P[n,l1,l2].solution_value for l2 in self.range_layer] for l1 in self.range_layer]
-                print(f"P[{n}] = ")
-                print(np.array(P_))
+                self.logger.debug(f"P[{n}] = ")
+                self.logger.debug(np.array(P_))
                 P.append(P_)
 
             self.random_rounding(h,P)
         else:
-            print("求解失败")
+            self.logger.debug("求解失败")
             exit(1)
 
     def output_scheduler_strategy(self):

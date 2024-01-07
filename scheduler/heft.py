@@ -93,7 +93,7 @@ class HEFT(Scheduler):
         self.sched, self.task_sched, _ = heft.schedule_dag(self.G, 
                             communication_matrix=self.server_comm, 
                             computation_matrix=self.total_process,communication_startup=np.zeros(self.server_comm.shape[0]))
-        print(self.sched, self.task_sched)
+        self.logger.debug(self.sched, self.task_sched)
         return self.output_scheduler_strategy()
 
         # gantt.showGanttChart(sched)

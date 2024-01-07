@@ -77,7 +77,7 @@ class GenDoc(Scheduler):
             if not ok:
                 break
         
-        print("func config: \n", self.fc_es_deploy)
+        self.logger.debug(f"func config: \n {self.fc_es_deploy}")
 
         return self.fixdoc()
     
@@ -138,7 +138,7 @@ class GenDoc(Scheduler):
             res.add(strategy)
             s = strategy_dict[strategy]
             place_strategy.extend([(k, s[k]) for k in s])
-        print(res)
+        self.logger.debug(res)
         self.sched = res
         return res
 
@@ -165,7 +165,7 @@ class GenDoc(Scheduler):
                 strategy_dict[(i,k)] = strategy
         res, strategy = self.get_earliest_finish(self.sink, None,P, F)
         strategy_dict[(self.sink, self.generate_pos)] = strategy
-        print(res, strategy)
+        self.logger.debug(f"{res}, {strategy}")
         return self.fixdoc_strategy_parse(strategy_dict)
 
     ###### fixdoc end ####################################

@@ -6,9 +6,22 @@ class Core:
         self.idx = idx
         self.interval = P.closedopen(0, P.inf)
 
+    def round_2(self, start, end):
+        start_tmp = round(start, 2)
+        end_tmp = round(end, 2)
+        if start < start_tmp:
+            start = round(start_tmp - 0.01,2)
+        else:
+            start = start_tmp
+        
+        if end > end_tmp: # 舍入了
+            end = round(end_tmp + 0.01,2)
+        else:
+            end = end_tmp
+        return start, end
+
     def occupy(self, start, end):
-        start = round(start, 2)
-        end = round(end+0.01, 2)
+        start, end = self.round_2(start, end)
         i = P.closedopen(start, end)
         if not self.interval.contains(i):
             print(self.interval)
@@ -18,8 +31,7 @@ class Core:
         self.interval = self.interval - P.closedopen(start, end)
     
     def release(self, start, end):
-        start = round(start, 2)
-        end = round(end+0.01, 2)
+        start, end = self.round_2(start, end)
         i = P.closedopen(start, end)
         if not (self.interval & i).empty:
             assert False, "release error" # 释放的是已经占据的
@@ -29,10 +41,10 @@ class Core:
         i = P.closedopen(start, end)
         return not self.interval.contains(i)
     
-    def find_est(self, size) -> bool:
-        size = round(size+0.01, 2)
+    def find_est(self, start, size) -> bool:
+        start, size = self.round_2(start, size)
         for i in self.interval:
-            if i.upper >= size + i.lower:
+            if i.lower >= start and i.upper >= size + i.lower:
                 return i.lower
         assert False, "never be there"
 
