@@ -25,8 +25,8 @@ def solve(tuple_val):
     for _ in range(n_trials):
         try:
             data = DataByJson(filename) # read Data
-            # scheduler = ["SDTS","GenDoc", "HEFT", "Optim"]
-            scheduler = ["Optim"]
+            scheduler = ["SDTS","GenDoc", "HEFT", "Optim"]
+            # scheduler = ["Optim"]
             for s in scheduler:
                 sched = eval(s)
                 param['makespan_'+s] = Analysis(data, *sched(data, None).schedule()).summarize()

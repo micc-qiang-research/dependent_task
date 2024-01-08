@@ -62,6 +62,8 @@ class GenDoc(Scheduler):
             ok = False
             for func_id in range(1, self.sink): # all func configure
                 rank_idx = func_process_rank_idx[func_id-1]
+                if rank_idx >= edge_server_number:
+                    continue
                 server_id = func_process_rank[func_id-1][rank_idx]
                 func_process_rank_idx[func_id-1] += 1
 
@@ -71,7 +73,7 @@ class GenDoc(Scheduler):
                     self.deploy_func_config(server_id, func_id)
 
                     # reach capacity limit
-                    if not self.func_deploy_and_check(server_id, func_id, C_vir[server_id]):
+                    if self.func_deploy_and_check(server_id, func_id, C_vir[server_id]):
                         S_.remove(server_id)
             # no process
             if not ok:

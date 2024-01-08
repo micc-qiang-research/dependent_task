@@ -133,7 +133,7 @@ def build_data(filename, K=3, L=10, ccr=0.5, dcr=5):
 
     # 修正cloud参数
     _d = ccr * _t / _e
-    for i in range(K):
+    for i in range(K-1):
         server_comm[i][K-1] = server_comm[K-1][i] = 15*_d
     for i in range(n_nodes):
         comp_matrix[i][K-1] = 0.75 * _t
