@@ -43,7 +43,7 @@ class Optim(Scheduler):
         mdl.XX = mdl.continuous_var_dict(XX_, name=lambda ffnn: "XX_%d_%d_%d_%d" % ffnn, ub=1)
 
         # 函数i和函数j之间的通信带宽
-        mdl.B = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "b_%d_%d" % ff, ub=1)
+        mdl.B = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "b_%d_%d" % ff)
 
         # 函数i和j是否部署到同一台机器的同一个核
         mdl.H = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "H_%d_%d" % ff, ub=1)
@@ -118,7 +118,7 @@ class Optim(Scheduler):
         mdl.add_constraints(\
             T_data[i] >= T_end[j] + B[j,i] * self.get_weight(j,i) \
                 for j in range_func \
-                    for i in range_func if self.G.has_edge(j,i) != 0)
+                    for i in range_func if self.G.has_edge(j,i))
 
         # 结束时间
         mdl.add_constraints((T_end[i] == T_start[i] + \
@@ -195,7 +195,7 @@ class Optim(Scheduler):
                         for i in range_func \
                             for j in range_func)
         
-        mdl.add_constraints(H[i,j] <= 1 - (h[i,n,k] + h[j,n,k]-1)/M\
+        mdl.add_constraints(H[i,j] <= 1 - (2 - h[i,n,k] - h[j,n,k])/M\
                 for n in range_server\
                     for k in range_core \
                         for i in range_func \
