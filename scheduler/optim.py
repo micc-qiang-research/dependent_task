@@ -26,51 +26,68 @@ class Optim(Scheduler):
 
         self.range_func,self.range_server,self.range_layer,self.range_core = range_func,range_server,range_layer,range_core
 
+        use_binary = False
+
 
         ########### 决策 start ###########################
         # 1.关键决策变量
         # 函数i是否部署到机器n的核c
-        mdl.h = mdl.continuous_var_cube(range_func, range_server, range_core, name=lambda fsc: "h_%d_%d_%d" % fsc, ub=1)
-        # 镜像层拉取的序列关系
-        mdl.P = mdl.continuous_var_cube(range_server, range_layer, range_layer, name=lambda sll: "p_%d_%d_%d" % sll, ub=1)
-        
-        # 2.辅助决策变量
-        # 函数i是否部署到机器n
-        mdl.X = mdl.continuous_var_matrix(range_func, range_server, name=lambda fs: "X_%d_%d" % fs, ub=1)
+        if use_binary:
+            mdl.h = mdl.binary_var_cube(range_func, range_server, range_core, name=lambda fsc: "h_%d_%d_%d" % fsc)
+            mdl.P = mdl.binary_var_cube(range_server, range_layer, range_layer, name=lambda sll: "p_%d_%d_%d" % sll)
+            mdl.X = mdl.binary_var_matrix(range_func, range_server, name=lambda fs: "X_%d_%d" % fs)
 
-        # 函数i是否部署到 n，并且函数j是否部署到 n_
-        XX_ = [(i,j,n,n_) for i in range_func for j in range_func for n in range_server for n_ in range_func]
-        mdl.XX = mdl.continuous_var_dict(XX_, name=lambda ffnn: "XX_%d_%d_%d_%d" % ffnn, ub=1)
+            XX_ = [(i,j,n,n_) for i in range_func for j in range_func for n in range_server for n_ in range_func]
+            mdl.XX = mdl.binary_var_dict(XX_, name=lambda ffnn: "XX_%d_%d_%d_%d" % ffnn, ub=1)
+
+            mdl.H = mdl.binary_var_matrix(range_func, range_func, name=lambda ff: "H_%d_%d" % ff)
+            
+            mdl.G = mdl.binary_var_matrix(range_server, range_layer, name=lambda sl: "g_%d_%d" % sl) # server n 下不下载 layer l
+            
+            Q_ = [(n,i,l1,l2) for n in range_server for i in range_func for l1 in range_layer for l2 in range_layer]
+            mdl.Q = mdl.binary_var_dict(Q_, name=lambda nill: "q_%d_%d_%d_%d" % nill)
+            
+            mdl.Y = mdl.binary_var_matrix(range_func, range_func, name=lambda ff: "y_%d_%d" % ff)
+        else:
+            mdl.h = mdl.continuous_var_cube(range_func, range_server, range_core, name=lambda fsc: "h_%d_%d_%d" % fsc, ub=1)
+            # 镜像层拉取的序列关系
+            mdl.P = mdl.continuous_var_cube(range_server, range_layer, range_layer, name=lambda sll: "p_%d_%d_%d" % sll, ub=1)
+            
+            # 2.辅助决策变量
+            # 函数i是否部署到机器n
+            mdl.X = mdl.continuous_var_matrix(range_func, range_server, name=lambda fs: "X_%d_%d" % fs, ub=1)
+
+            # 函数i是否部署到 n，并且函数j是否部署到 n_
+            XX_ = [(i,j,n,n_) for i in range_func for j in range_func for n in range_server for n_ in range_func]
+            mdl.XX = mdl.continuous_var_dict(XX_, name=lambda ffnn: "XX_%d_%d_%d_%d" % ffnn, ub=1)
+
+            # 函数i和j是否部署到同一台机器的同一个核
+            mdl.H = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "H_%d_%d" % ff, ub=1)
+
+            # 镜像块是否下载
+            mdl.G = mdl.continuous_var_matrix(range_server, range_layer, name=lambda sl: "g_%d_%d" % sl, ub=1) # server n 下不下载 layer l
+            
+            '''
+            线性化辅助变量，满足如下条件，Q才为1
+            1. i部署到n上
+            2. n需要下载l1,l2
+            3. l1下载比l2先
+            '''
+            Q_ = [(n,i,l1,l2) for n in range_server for i in range_func for l1 in range_layer for l2 in range_layer]
+            mdl.Q = mdl.continuous_var_dict(Q_, name=lambda nill: "q_%d_%d_%d_%d" % nill, ub=1)
+
+            '''
+            线性化辅助变量        
+            '''
+            mdl.Y = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "y_%d_%d" % ff, ub=1)    
 
         # 函数i和函数j之间的通信带宽
         mdl.B = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "b_%d_%d" % ff)
-
-        # 函数i和j是否部署到同一台机器的同一个核
-        mdl.H = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "H_%d_%d" % ff, ub=1)
-
         # 时间
         mdl.T_data = mdl.continuous_var_list(range_func, name=lambda l: "t_data_%d" % l) # 数据依赖准备好时间
         mdl.T_start = mdl.continuous_var_list(range_func, name=lambda l: "t_start_%d" % l) # 开始时间
         mdl.T_end = mdl.continuous_var_list(range_func, name=lambda l: "t_end_%d" % l) # 结束时间
         mdl.T_image = mdl.continuous_var_list(range_func, name=lambda l: "t_image_%d" % l) # 镜像准备好时间
-
-        # 镜像块是否下载
-        mdl.G = mdl.continuous_var_matrix(range_server, range_layer, name=lambda sl: "g_%d_%d" % sl, ub=1) # server n 下不下载 layer l
-
-
-        '''
-        线性化辅助变量，满足如下条件，Q才为1
-        1. i部署到n上
-        2. n需要下载l1,l2
-        3. l1下载比l2先
-        '''
-        Q_ = [(n,i,l1,l2) for n in range_server for i in range_func for l1 in range_layer for l2 in range_layer]
-        mdl.Q = mdl.continuous_var_dict(Q_, name=lambda nill: "q_%d_%d_%d_%d" % nill, ub=1)
-
-        '''
-        线性化辅助变量        
-        '''
-        mdl.Y = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "y_%d_%d" % ff, ub=1)
         mdl.TET = mdl.continuous_var()
 
         h,P,X,XX,B,H,T_data,T_start,T_end,T_image,G,Q,Y,TET = mdl.h,mdl.P,mdl.X,mdl.XX,mdl.B,mdl.H,mdl.T_data,mdl.T_start,mdl.T_end,mdl.T_image,mdl.G,mdl.Q,mdl.Y,mdl.TET
@@ -195,11 +212,17 @@ class Optim(Scheduler):
                         for i in range_func \
                             for j in range_func)
         
-        mdl.add_constraints(H[i,j] <= 1 - (2 - h[i,n,k] - h[j,n,k])/M\
+        mdl.add_constraints(H[i,j] <= 1 - (h[i,n,k] - h[j,n,k])/M\
                 for n in range_server\
                     for k in range_core \
                         for i in range_func \
                             for j in range_func)
+        # mdl.add_constraints(H[i,j] == mdl.max( \
+        #     h[i,n,k] + h[j,n,k] - 1 \
+        #         for n in range_server\
+        #             for k in range_core) 
+        #                 for i in range_func \
+        #                     for j in range_func)
 
         # 每个时间点运行的任务数量不超过机器核数
         mdl.add_constraints(T_end[j] - T_start[i] <= (2-Y[j,i]-H[i, j])*M \

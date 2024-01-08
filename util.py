@@ -158,3 +158,26 @@ def draw_cdf(n, label, filename = "lat_cdf.csv"):
 
 def get_in_result_path(filename):
     return os.path.join(result_path, filename)
+
+
+# 画结果比较图
+from tabulate import tabulate
+def draw_pairwise_comparison_table(scheduler, result_better, result_equal, result_worse):
+    row = ['', '']
+    row.extend(scheduler)
+    table = [row]
+    ss = 'better\nequal\nworst'
+    cell = "{}%\n{}%\n{}%"
+    # ['SDTS',  ss, 23,12,23,11]
+    for i,sched in enumerate(scheduler):
+        row = [sched, ss]
+        for j,sched2 in enumerate(scheduler):
+            better = result_better[i][j]
+            equal = result_equal[i][j]
+            worse = result_worse[i][j]
+            if i == j:
+                row.append("*")
+            else:
+                row.append(cell.format(better, equal, worse))
+        table.append(row)
+    print(tabulate(table, headers='firstrow', tablefmt='fancy_grid'))
