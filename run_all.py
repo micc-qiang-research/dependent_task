@@ -26,7 +26,7 @@ def solve(tuple_val):
         try:
             data = DataByJson(filename) # read Data
             # scheduler = ["SDTS","GenDoc", "HEFT", "Optim"]
-            scheduler = ["SDTS"]
+            scheduler = ["Optim"]
             for s in scheduler:
                 sched = eval(s)
                 param['makespan_'+s] = Analysis(data, *sched(data, None).schedule()).summarize()
@@ -39,6 +39,25 @@ def solve(tuple_val):
             print("Error occure")
     
     return result
+
+def save(filename, data):
+    result_filename = get_in_result_path(filename)
+    if os.path.exists(result_filename):
+        df = pd.DataFrame(data)
+        with open(result_filename, 'rb') as handle:
+            df_old = pickle.load(handle)
+            df = pd.DataFrame(data)
+            if df_old.shape[0] == len(data):
+                makespan_keys = [k for k in data[0] if k.startswith('makespan_')]
+                df_old[makespan_keys] = df[makespan_keys]
+                df = df_old
+                
+    else:
+        df = pd.DataFrame(data)
+    
+    with open(result_filename, 'wb') as handle:
+        pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    print("Data saved!")
 
 
 # n_trials = 5
@@ -74,7 +93,4 @@ for i in range(1):
     # else:
     result_list = pool.map(solve, enumerate(filenames[i*chunk_size:(i+1)*chunk_size]))
     data.extend([result for sublist in result_list for result in sublist])
-    df = pd.DataFrame(data)
-    with open(get_in_result_path('data.pkl'), 'wb') as handle:
-        pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    print("Data saved!")
+    save("data.pkl", data)

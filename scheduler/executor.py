@@ -32,8 +32,8 @@ class Executor:
         self.logger = logging.getLogger("simulator")
         self.logger.setLevel(logging.DEBUG)
         handler1 = logging.StreamHandler()
-        # handler1.setLevel(logging.WARNING)
-        handler1.setLevel(logging.DEBUG)
+        handler1.setLevel(logging.WARNING)
+        # handler1.setLevel(logging.DEBUG)
         # formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
         # handler1.setFormatter(formatter)
         if self.config:
@@ -119,6 +119,7 @@ class Executor:
     '''
 
     # 按核顺序来返回函数
+    # TODO. 对于SDTS，可能前置任务没全部做完后置任务就开始了
     def dumb_gen_strategy(self, raw_strategy):
         assert len(raw_strategy) >= self.cluster.get_total_core_number(), "strategy length don't match core number"
         finished_func = set()

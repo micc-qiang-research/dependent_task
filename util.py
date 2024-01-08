@@ -152,7 +152,7 @@ def draw_cdf(n, label, filename = "lat_cdf.csv"):
     plt.ylabel('CDF') 
     # plt.xlim(0,80000)
     plt.legend()
-    # plt.show()
+    plt.show()
     plt.savefig(output_file)
 
 

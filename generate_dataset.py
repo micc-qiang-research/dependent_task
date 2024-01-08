@@ -3,6 +3,9 @@ import json
 from glob import glob
 from os import path
 from collections.abc import Iterable
+from tqdm import tqdm
+
+
 
 _t = 1 # 平均执行时间， cloud: 0.75t
 _b = 1 # 下载镜像的延迟 cloud: 0.5b
@@ -160,8 +163,9 @@ if __name__ == "__main__":
     
     filenames = glob('dag/*.dot')
     
-    for filename in filenames:
+    for filename in tqdm(filenames):
         data = build_data(filename)
         separators = (',', ':')
         with open(path.join(output_dir, path.basename(filename)[:-3])+"json", "w") as f:
             json.dump(data, f, indent=2, separators=separators)
+        
