@@ -140,6 +140,7 @@ def build_data(filename, K=3, lfr=2, ccr=0.5, dcr=5):
     for i in range(n_nodes):
         comp_matrix[i][K-1] = 0.75 * _t
     server_info[K-1][0] = 4
+    server_info[K-1][2] = 0.5 * _b
 
     
     return {"N": n_nodes,      # 函数个数
