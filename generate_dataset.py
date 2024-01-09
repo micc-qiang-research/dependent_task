@@ -4,7 +4,7 @@ from glob import glob
 from os import path
 from collections.abc import Iterable
 from tqdm import tqdm
-
+from config import run_config
 
 
 _t = 1 # 平均执行时间， cloud: 0.75t
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     filenames = glob('dag/*.dot')
     
     for filename in tqdm(filenames):
-        data = build_data(filename)
+        data = build_data(filename, K=run_config.K, lfr=run_config.lfr, ccr=run_config.ccr, dcr=run_config.dcr)
         separators = (',', ':')
         with open(path.join(output_dir, path.basename(filename)[:-3])+"json", "w") as f:
             json.dump(data, f, indent=2, separators=separators)

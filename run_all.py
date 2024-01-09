@@ -11,6 +11,7 @@ from glob import glob
 import warnings
 import logging
 from util import get_in_result_path
+from config import run_config
 
 warnings.filterwarnings('ignore',category=RuntimeWarning)
 logging.basicConfig(filename="Error.log", level=logging.DEBUG)
@@ -26,7 +27,7 @@ def solve(tuple_val):
         try:
             data = DataByJson(filename) # read Data
             # scheduler = ["SDTS","GenDoc", "HEFT", "Optim"]
-            scheduler = ["SDTS"]
+            scheduler = run_config.scheduler_run
             for s in scheduler:
                 sched = eval(s)
                 param['makespan_'+s] = Analysis(data, *sched(data, None).schedule()).summarize()
@@ -53,7 +54,10 @@ def save(filename, data):
 
                 tmp = df_old.merge(df, on=other_keys, how="inner")
                 for k in makespan_keys:
-                    df_old[k] = tmp[k+"_y"]
+                    if k in df_old:
+                        df_old[k] = tmp[k+"_y"]
+                    else:
+                        df_old[k] = tmp[k]
                 df = df_old
                 
     else:
@@ -97,4 +101,4 @@ for i in range(batch_number):
     else:
         result_list = pool.map(solve, enumerate(filenames[i*chunk_size:(i+1)*chunk_size]))
     data.extend([result for sublist in result_list for result in sublist])
-    save("data.pkl", data)
+save("data.pkl", data)
