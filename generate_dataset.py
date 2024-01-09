@@ -50,8 +50,8 @@ def get_layer_size(size=1):
 # 随机生成函数依赖的镜像块信息
 @round_2
 def get_layer_info(L=10, dcr=5):
-    dcr = dcr / _l
-    size = max(min(int(np.random.normal(dcr, dcr/3)),L),1)
+    _size = dcr * _t / _l # _l * _size / _t = dcr
+    size = max(min(int(np.random.normal(_size, _size/3)),L),1)
     res = np.random.choice(range(L), size=size, replace=False) # replace=False表示不重复采样
     res.sort()
     return res.tolist()
@@ -62,8 +62,9 @@ Input:
     L: layer的数量
     ccr: commucation to computation ratio
     dcr: download to computation ratio
+    lfr: layer number to function number ratio
 '''
-def build_data(filename, K=3, L=10, ccr=0.5, dcr=5):
+def build_data(filename, K=3, lfr=2, ccr=0.5, dcr=5):
     graph = pydot.graph_from_dot_file(filename)[0]
     n_nodes = len(graph.get_nodes())
 
@@ -91,6 +92,7 @@ def build_data(filename, K=3, L=10, ccr=0.5, dcr=5):
         graph.add_edge(e_edge)
 
     n_nodes = len(graph.get_nodes())
+    L = int(lfr*n_nodes)
 
     # construct computation matrix
     # comp_matrix = np.empty((n_nodes, K))

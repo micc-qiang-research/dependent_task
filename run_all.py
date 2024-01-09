@@ -25,8 +25,8 @@ def solve(tuple_val):
     for _ in range(n_trials):
         try:
             data = DataByJson(filename) # read Data
-            scheduler = ["SDTS","GenDoc", "HEFT", "Optim"]
-            # scheduler = ["Optim"]
+            # scheduler = ["SDTS","GenDoc", "HEFT", "Optim"]
+            scheduler = ["SDTS"]
             for s in scheduler:
                 sched = eval(s)
                 param['makespan_'+s] = Analysis(data, *sched(data, None).schedule()).summarize()
@@ -49,7 +49,11 @@ def save(filename, data):
             df = pd.DataFrame(data)
             if df_old.shape[0] == len(data):
                 makespan_keys = [k for k in data[0] if k.startswith('makespan_')]
-                df_old[makespan_keys] = df[makespan_keys]
+                other_keys = [k for k in data[0] if not k.startswith('makespan_')]
+
+                tmp = df_old.merge(df, on=other_keys, how="inner")
+                for k in makespan_keys:
+                    df_old[k] = tmp[k+"_y"]
                 df = df_old
                 
     else:
@@ -73,7 +77,7 @@ def save(filename, data):
 # p = [4,8,16,32]
 
 n_trials = 1
-
+batch_number = 4
 
 keys = ['n', 'fat', 'density', 'regularity', 'jump']
 
@@ -86,11 +90,11 @@ print('Using {} cores'.format(cpu_cnt))
 
 # columns = ['n', 'fat', 'density', 'regularity', 'jump', 'ccr','b','p', 'makespan_HEFT', 'makespan_PSO', 'makespan_IPEFT']
 data = []
-chunk_size = len(filenames)//1
-for i in range(1):
-    # if i==9:
-        # result_list = pool.map(solve, enumerate(filenames[i*chunk_size:]))
-    # else:
-    result_list = pool.map(solve, enumerate(filenames[i*chunk_size:(i+1)*chunk_size]))
+chunk_size = len(filenames)//batch_number
+for i in range(batch_number):
+    if i==batch_number-1:
+        result_list = pool.map(solve, enumerate(filenames[i*chunk_size:]))
+    else:
+        result_list = pool.map(solve, enumerate(filenames[i*chunk_size:(i+1)*chunk_size]))
     data.extend([result for sublist in result_list for result in sublist])
     save("data.pkl", data)

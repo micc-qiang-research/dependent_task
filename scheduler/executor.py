@@ -119,12 +119,20 @@ class Executor:
     '''
 
     # 按核顺序来返回函数
-    # TODO. 对于SDTS，可能前置任务没全部做完后置任务就开始了
+    # 对于SDTS，可能前置任务没全部做完后置任务就开始了
     def dumb_gen_strategy(self, raw_strategy):
         assert len(raw_strategy) >= self.cluster.get_total_core_number(), "strategy length don't match core number"
         finished_func = set()
         all_func = set(self.G.nodes())
         pos = [0 for i in range(len(raw_strategy))]
+        def is_exist(func_id):
+            for i,s in enumerate(raw_strategy):
+                if pos[i] >= len(s):
+                    continue
+                if func_id in s[pos[i]:]:
+                    return True
+            return False
+        
         while True:
             # 所有节点都遍历过
             if len(all_func ^ finished_func) == 0: break
@@ -134,6 +142,7 @@ class Executor:
                 j = pos[i]
                 if set(self.G.predecessors(s[j])).issubset(finished_func):
                     pos[i] = j + 1
+                    # if not is_exist(s[j]): # 只有在列表中不存在了，才添加？ 可能会死锁！
                     finished_func.add(s[j])
                     yield s[j],[i]
     
