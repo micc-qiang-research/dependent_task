@@ -253,7 +253,101 @@ class Optim(Scheduler):
         assert core_id < self.data.server_info[server_id][0]
         return server_id, core_id
 
-    def random_rounding(self, h, P):
+
+    def random_get_solution(self, h, P, X):
+        X_ = np.zeros(np.array(X).shape)        
+        h_ = np.zeros(np.array(h).shape)
+        P_ = np.zeros(np.array(P).shape)
+        g_ = np.zeros((self.K, self.L))
+        g = np.zeros((self.K, self.L))
+
+        for i in self.range_func:
+            j = self.random_01_vector(X[i])
+            k = self.random_01_vector(np.array(h[i][j])/X[i][j])
+            X_[i][j] = 1
+            h_[i][j][k] = 1
+
+        for j in self.range_server:
+            for l in self.range_layer:
+                g[j][l] = min(sum([X_[i][j] for i in self.range_func if self.is_func_has_layer(i, l)]), 1)
+                # g_[j][l] = self.random_01(g[j][l])
+
+        for j in self.range_server:
+            for l1 in self.range_layer:
+                for l2 in range(l1, self.L):
+                    if g[j][l1] == 1 and g[j][l2] == 1:
+                        if l1 != l2:
+                            if P[j][l1][l2] + P[j][l2][l1] == 0:
+                                P_[j][l1][l2] = self.random_01(0.5)
+                            else:
+                                P_[j][l1][l2] = self.random_01(P[j][l1][l2]/(P[j][l1][l2] + P[j][l2][l1]))
+                            P_[j][l2][l1] = 1 - P_[j][l1][l2]
+                        else:
+                            P_[j][l1][l2] = 1
+        return h_, P_, X_
+
+    def random_01(self, prob):
+        if prob >= 1: prob = 1
+        return np.random.choice(2, p=[1-prob, prob])
+    
+    def random_01_matrix(self, prob_matrix):
+        _, column = np.array(prob_matrix).shape
+        probs = np.array(prob_matrix).reshape(-1)
+        i = np.random.choice(range(len(probs)), p=probs)
+        return i // column, i % column
+    
+    def random_01_vector(self, prob_vector):
+        i = np.random.choice(range(len(prob_vector)), p=prob_vector)
+        return i
+                
+    def is_feasible(self, h, P, X, cnt=0):
+        def print_(n):
+            print(n, "-----", cnt)
+
+        for i in self.range_func:
+            if sum([X[i][n] for n in self.range_server]) != 1:
+                print_(1)
+                return False
+            for n in self.range_server:
+                if sum([h[i][n][c] for c in self.range_core]) != X[i][n]:
+                    print_(2)
+                    return False
+
+        g = np.zeros((self.K, self.L))
+        for n in self.range_server:
+            for l in self.range_layer:
+                g[n][l] = min(sum([X[i][n] for i in self.range_func if self.is_func_has_layer(i, l)]),1)
+
+        for n in self.range_server:          
+            for l1 in self.range_layer:
+                if g[n][l1] != P[n][l1][l1]:
+                    print_(3)
+                    return False
+
+        for n in self.range_server:
+            for l1 in self.range_layer:
+                for l2 in self.range_layer:
+                    if l1 != l2:
+                        if g[n][l1] == 0 or g[n][l2] ==0:
+                            if P[n][l1][l2] != 0 or P[n][l2][l1] != 0:
+                                print_(4)
+                                return False
+                        else:
+                            if P[n][l1][l2] + P[n][l2][l1] != 1:
+                                print_(5)
+                                return False
+        for n in self.range_server:          
+            for l1 in self.range_layer:
+                for l2 in self.range_layer:
+                    for l3 in self.range_layer:
+                        if l1 != l2 != l3:
+                            if P[n][l1][l2] + P[n][l2][l3] + P[n][l3][l1] > 2:
+                                print_(6)
+                                return False
+
+        return True
+    
+    def naive_strategy(self, h, P, X):
         layers = [set() for _ in self.range_server] # 每个服务器需要下载的镜像集合
         task_server_mapper = {}
         download_sequence = []
@@ -275,6 +369,44 @@ class Optim(Scheduler):
         self.logger.debug(download_sequence)
         self.task_server_mapper = task_server_mapper
         self.download_sequence = download_sequence
+
+
+    def random_rounding(self, h, P, X):
+        _h, _P, _X = self.random_get_solution(h,P,X)
+        cnt = 1
+        while not self.is_feasible(_h, _P, _X, cnt):
+            _h, _P, _X = self.random_get_solution(h,P,X)
+            cnt += 1
+        
+        h,P,X = _h, _P, _X
+
+        # print(X)
+        # for n in self.range_server:
+        #     print(f"P{n}", P[n])
+        
+        task_server_mapper = {}
+        download_sequence = []
+        for i in self.range_func:
+            for n in self.range_server:
+                for c in self.range_core:
+                    if h[i][n][c] == 1:
+                        task_server_mapper[i] = (n,c)
+        
+        for n in self.range_server:
+            layers = []
+            for l in self.range_layer:
+                if P[n][l][l] == 1:
+                    layers.append(l)
+
+            layers = sorted(layers, key=lambda l: sum(P[n][l]), reverse=True)
+            download_sequence.append(layers)
+
+
+        self.logger.debug(task_server_mapper)
+        self.logger.debug(download_sequence)
+        self.task_server_mapper = task_server_mapper
+        self.download_sequence = download_sequence
+        
         # self.get_makespan(task_server_mapper, download_sequence)
             
 
@@ -287,6 +419,8 @@ class Optim(Scheduler):
                 self.logger.debug(f"h[{i}] = ")
                 self.logger.debug(np.array(h_))
                 h.append(h_)
+            
+            X = [[mdl.X[i,n].solution_value for n in self.range_server] for i in self.range_func]
 
             P = []
             for n in self.range_server:
@@ -295,7 +429,8 @@ class Optim(Scheduler):
                 self.logger.debug(np.array(P_))
                 P.append(P_)
 
-            self.random_rounding(h,P)
+            exit(0)
+            self.random_rounding(h,P,X)
         else:
             self.logger.debug("求解失败")
             exit(1)

@@ -29,26 +29,33 @@ class Analysis(Executor):
             # 层下载完成时间
             if not hasattr(self, "server_layer_download"):
                 self.server_layer_download = []
-                for seq in self.download_sequence:
+                for sid, seq in enumerate(self.download_sequence):
                     self.layer_download_complete = [math.inf for i in range(self.L)]
                     download_time = 0
                     for layer in seq:
                         size = self.layers[layer].size
-                        download_time += size * self.servers[server_id].download_latency
+                        download_time += size * self.servers[sid].download_latency
                         self.layer_download_complete[layer] = download_time
                     self.server_layer_download.append(self.layer_download_complete)
-                for server_id in range(self.K):
-                    complete_time = max([self.server_layer_download[server_id][l] for l in range(self.L) if self.server_layer_download[server_id][l] != math.inf])
-                    self.cluster.set_download_complete(server_id, complete_time)
+
+                for sid in range(self.K):
+                    layer_download_complete = [self.server_layer_download[sid][l] for l in range(self.L) if self.server_layer_download[sid][l] != math.inf]
+                    if len(layer_download_complete) == 0:
+                        complete_time = 0
+                    else:
+                        complete_time = max(layer_download_complete)
+                    self.cluster.set_download_complete(sid, complete_time)
+            res = -1
             for layer in self.funcs[func_id].layer:
                 if self.server_layer_download[server_id][layer] == math.inf:
-                    assert False, f"server {server_id} need layer {layer}"
+                    assert False, f"server {server_id} need layer {layer} for func {func_id}"
+                res = max(res, self.server_layer_download[server_id][layer])
             # if st == 0:
             #     res = self.cluster.get_download_complete(server_id)
             # else:
             #     res = st
             st = 0
-            res = self.cluster.get_download_complete(server_id)
+            # res = self.cluster.get_download_complete(server_id)
             
         # 未指定seq
         else:
@@ -87,6 +94,7 @@ class Analysis(Executor):
                         pos = "cloud"
                     server_id, core_id = self.cluster.get_server_by_core_id(proc)
 
+                    print(f"func {func} deploy to {server_id} {core_id},proc {proc}")
                     # 环境准备好时间
                     t_s, t_e = self.download_layer(server_id, func)
 

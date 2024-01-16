@@ -5,8 +5,8 @@ run_config = SimpleNamespace(**{
     "scheduler_show": ["SDTS","GenDoc", "HEFT","Optim"],
 
     # run_all
-    "scheduler_run": ["SDTS","GenDoc", "HEFT", "Optim"],
-    # "scheduler_run": ["Optim"],
+    # "scheduler_run": ["SDTS","GenDoc", "HEFT", "Optim"],
+    "scheduler_run": ["Optim"],
 
     # generate_dataset
     "K": 5,
