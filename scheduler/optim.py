@@ -92,12 +92,16 @@ class Optim(Scheduler):
 
         h,P,X,XX,B,H,T_data,T_start,T_end,T_image,G,Q,Y,TET = mdl.h,mdl.P,mdl.X,mdl.XX,mdl.B,mdl.H,mdl.T_data,mdl.T_start,mdl.T_end,mdl.T_image,mdl.G,mdl.Q,mdl.Y,mdl.TET
 
-        M = 1e7 # 一个足够大的数
+        M = 1e11 # 一个足够大的数
 
         ########## 决策 end ###########################
 
 
         ########## 约束 start ###########################
+
+        # source和sink部署到固定的机器
+        mdl.add_constraints(X[i,self.generate_pos] == 1 for i in [self.source, self.sink])
+
         # 每个函数只能部署在一个服务器上
         mdl.add_constraints(mdl.sum(X[f, s] for s in range_server) == 1 for f in range_func)
         
@@ -206,17 +210,21 @@ class Optim(Scheduler):
         mdl.add_constraints(T_start[i] >= T_image[i] for i in range_func)
 
         ### H[i,j]为i仅当对某个n,k，h[i,n,k]和h[j,n,k]同时为1
-        mdl.add_constraints(H[i,j] >= h[i,n,k] + h[j,n,k]-1\
-                for n in range_server\
-                    for k in range_core \
-                        for i in range_func \
-                            for j in range_func)
         
-        mdl.add_constraints(H[i,j] <= 1 - (h[i,n,k] - h[j,n,k])/M\
-                for n in range_server\
-                    for k in range_core \
-                        for i in range_func \
-                            for j in range_func)
+        # 方法1：先计算H[i,j]
+        # mdl.add_constraints(H[i,j] >= h[i,n,k] + h[j,n,k]-1\
+        #         for n in range_server\
+        #             for k in range_core \
+        #                 for i in range_func \
+        #                     for j in range_func)
+        
+        # mdl.add_constraints(H[i,j] <= 1 - (h[i,n,k] - h[j,n,k])/M\
+        #         for n in range_server\
+        #             for k in range_core \
+        #                 for i in range_func \
+        #                     for j in range_func)
+        
+        # 方法2：利用max，但这个需要引入整型决策变量？
         # mdl.add_constraints(H[i,j] == mdl.max( \
         #     h[i,n,k] + h[j,n,k] - 1 \
         #         for n in range_server\
@@ -225,14 +233,19 @@ class Optim(Scheduler):
         #                     for j in range_func)
 
         # 每个时间点运行的任务数量不超过机器核数
-        mdl.add_constraints(T_end[j] - T_start[i] <= (2-Y[j,i]-H[i, j])*M \
+        mdl.add_constraints(T_end[j] - T_start[i] <= (3-Y[j,i]-h[i,n,k]-h[j,n,k])*M \
                             for i in range_func \
-                            for j in range_func if i!=j)
+                            for j in range_func if i!=j \
+                            for n in range_server \
+                            for k in range_core)
         
-        mdl.add_constraints(T_end[i] - T_start[j] <= (2-Y[i,j]-H[i, j])*M \
+        mdl.add_constraints(T_end[i] - T_start[j] <= (3-Y[j,i]-h[i,n,k]-h[j,n,k])*M \
                             for i in range_func \
-                            for j in range_func if i!=j)
+                            for j in range_func if i!=j \
+                            for n in range_server \
+                            for k in range_core)
         
+        # i在j前或j在i前至少有一个满足
         mdl.add_constraints(Y[i,j] + Y[j,i] >= 1 \
                             for i in range_func \
                             for j in range_func if i!=j)
@@ -241,7 +254,7 @@ class Optim(Scheduler):
         
         # 目标
         mdl.minimize(TET)
-        mdl.print_information()
+        # mdl.print_information()
 
         solution = mdl.solve()
 
@@ -262,8 +275,8 @@ class Optim(Scheduler):
         g = np.zeros((self.K, self.L))
 
         for i in self.range_func:
-            j = self.random_01_vector(X[i])
-            k = self.random_01_vector(np.array(h[i][j])/X[i][j])
+            j = self.random_01_vector(X[i]) # choose server
+            k = self.random_01_vector(np.array(h[i][j])/X[i][j]) # choose core
             X_[i][j] = 1
             h_[i][j][k] = 1
 
@@ -300,10 +313,11 @@ class Optim(Scheduler):
         i = np.random.choice(range(len(prob_vector)), p=prob_vector)
         return i
                 
-    def is_feasible(self, h, P, X, cnt=0):
+    def is_feasible(self, h, P, X, cnt=0, no_seq=True):
         def print_(n):
             print(n, "-----", cnt)
 
+        # x, h 放置决策
         for i in self.range_func:
             if sum([X[i][n] for n in self.range_server]) != 1:
                 print_(1)
@@ -312,18 +326,23 @@ class Optim(Scheduler):
                 if sum([h[i][n][c] for c in self.range_core]) != X[i][n]:
                     print_(2)
                     return False
+                
+        if no_seq:
+            return True
 
         g = np.zeros((self.K, self.L))
         for n in self.range_server:
             for l in self.range_layer:
                 g[n][l] = min(sum([X[i][n] for i in self.range_func if self.is_func_has_layer(i, l)]),1)
 
+        # 镜像下载序列决策 1：存在关系
         for n in self.range_server:          
             for l1 in self.range_layer:
                 if g[n][l1] != P[n][l1][l1]:
                     print_(3)
                     return False
 
+        # 镜像下载序列决策 2：序列关系
         for n in self.range_server:
             for l1 in self.range_layer:
                 for l2 in self.range_layer:
@@ -336,6 +355,8 @@ class Optim(Scheduler):
                             if P[n][l1][l2] + P[n][l2][l1] != 1:
                                 print_(5)
                                 return False
+                            
+        # 镜像下载序列决策 3： 不存在循环的序列拉取决策 A->B->C->A
         for n in self.range_server:          
             for l1 in self.range_layer:
                 for l2 in self.range_layer:
@@ -429,7 +450,7 @@ class Optim(Scheduler):
                 self.logger.debug(np.array(P_))
                 P.append(P_)
 
-            exit(0)
+            # exit(0)
             self.random_rounding(h,P,X)
         else:
             self.logger.debug("求解失败")
@@ -438,7 +459,8 @@ class Optim(Scheduler):
     def output_scheduler_strategy(self):
         replica = False
         place = [[] for i in range(self.cluster.get_total_core_number())]
-        download_sequence = self.download_sequence
+        # download_sequence = self.download_sequence
+        download_sequence = None # TODO. 先不采用镜像下载序列
         for task_id in self.task_server_mapper:
             server_id, core_id = self.task_server_mapper[task_id]
             pid = self.cluster.get_total_core_id(server_id, core_id)

@@ -94,7 +94,7 @@ class Analysis(Executor):
                         pos = "cloud"
                     server_id, core_id = self.cluster.get_server_by_core_id(proc)
 
-                    print(f"func {func} deploy to {server_id} {core_id},proc {proc}")
+                    self.logger.debug(f"func {func} deploy to {server_id} {core_id},proc {proc}")
                     # 环境准备好时间
                     t_s, t_e = self.download_layer(server_id, func)
 
