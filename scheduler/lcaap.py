@@ -64,7 +64,7 @@ class LCAAP(Scheduler):
 
             # print(self.get_func_total_layer_size(func_id))
             # exit(0)
-            score_a = 2 * self.get_func_total_layer_size(func_id) * max([self.servers[k].download_latency for k in range(self.K)]) + max_comm_cost
+            score_a = 2 * self.get_total_layer_size_sum() * max([self.servers[k].download_latency for k in range(self.K)]) + max_comm_cost
 
             # print(score_a)
             # continue
@@ -193,3 +193,5 @@ class LCAAP(Scheduler):
     def get_total_layer_size(self, layers):
         return sum([self.layers[i].size for i in layers])
     
+    def get_total_layer_size_sum(self):
+        return sum([self.layers[i].size for i in range(self.L)])
