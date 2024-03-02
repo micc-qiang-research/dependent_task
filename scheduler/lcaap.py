@@ -14,7 +14,8 @@ class LCAAP(Scheduler):
     def schedule(self):
         self.sched = self.lcaa()
         # print(self.sched)
-        self.download_sequence = self.get_download_sequence(self.sched)
+        # self.download_sequence = self.get_download_sequence(self.sched)
+        self.download_sequence = None
         return self.output_scheduler_strategy()
     
     def output_scheduler_strategy(self):
@@ -107,7 +108,7 @@ class LCAAP(Scheduler):
     '''
     def score(self, L_inc, C_used, fetch_latency, comm_cost):
         alpha = 0.5
-        beta = 0.5
+        beta = 0.8
         return (1-beta)*((1-alpha)*L_inc + alpha*C_used) * fetch_latency + beta*comm_cost
 
     '''
