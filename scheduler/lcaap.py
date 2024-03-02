@@ -13,13 +13,14 @@ class LCAAP(Scheduler):
 
     def schedule(self):
         self.sched = self.lcaa()
-        print(self.sched)
+        # print(self.sched)
+        self.download_sequence = self.get_download_sequence(self.sched)
         return self.output_scheduler_strategy()
     
     def output_scheduler_strategy(self):
         replica = False
         place = [[] for i in range(self.cluster.get_total_core_number())]
-        download_sequence = None
+        download_sequence = self.download_sequence
         core_index = [0 for i in range(self.K)] # 计算当前正在使用server的core index
 
         for func,server in self.sched.items():
@@ -109,6 +110,70 @@ class LCAAP(Scheduler):
         beta = 0.5
         return (1-beta)*((1-alpha)*L_inc + alpha*C_used) * fetch_latency + beta*comm_cost
 
+    '''
+    @Params:
+        func_ids: 函数id序列（按拓扑排序排列好）
+    '''
+    def layer_sequence(self, func_ids, G):
+        func_ids = list(reversed(func_ids))
+        func_set = set(func_ids)
+        func_is_deploy = set()
+        priority = {}
+        for i, func_id in enumerate(func_ids):
+            if func_id == self.source or func_id == self.sink:
+                continue
+            
+            max_out = 0
+            for j in G.successors(func_id):
+                if j not in func_set:
+                    if max_out == 0 or self.G.edges[func_id, j]["weight"] > max_out:
+                        max_out = self.G.edges[func_id, j]["weight"]
+            
+            min_in = 0
+            for j in G.predecessors(func_id):
+                if j not in func_set:
+                    if min_in == 0 or self.G.edges[j, func_id]["weight"] < min_in:
+                        min_in = G.edges[(j, func_id)]["weight"]
+            
+            priority[func_id] = max_out - min_in
+
+            for j in func_is_deploy:
+                if nx.has_path(G, func_id, j):
+                    priority[func_id] += priority[j]
+            
+            func_is_deploy.add(func_id)
+
+        # 下载序列
+        sequence = [x[0] for x in sorted(priority.items(), key=lambda x: x[1], reverse=True)]
+
+        layer_sequence = []
+        for func_id in sequence:
+            for layer in self.funcs[func_id].layer:
+                if layer not in layer_sequence:
+                    layer_sequence.append(layer)
+
+        return layer_sequence
+    
+    def get_download_sequence(self, sched):
+        download_sequence = []
+
+        nodes = list(nx.topological_sort(self.G))
+
+        for k in range(self.K):
+
+            # 获取调度到此服务器的所有函数
+            func_ids_non_sorted = [func for func, server in sched.items() if server == k]
+
+            # 按照拓扑排序的顺序来排列
+            func_ids = []
+            for node in nodes:
+                if node in func_ids_non_sorted:
+                    func_ids.append(node)
+
+            download_sequence.append(self.layer_sequence(func_ids, self.G))
+
+        print(download_sequence)
+        return download_sequence
 
     # 获取某个函数layers的总大小
     def get_func_total_layer_size(self, func_id):
