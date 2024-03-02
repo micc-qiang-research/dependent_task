@@ -183,7 +183,7 @@ class GenDoc(Scheduler):
         core_index = [0 for i in range(self.K)] # 计算当前正在使用server的core index
 
         for func,server in self.sched:
-            place[core_index[server]].append(func)
+            place[core_index[server]+self.cluster.get_start_core_number(server)].append(func)
             core_index[server] += 1
             core_index[server] %= self.cluster.get_core_number(server)
         # place = [[0,1],[3],[1,2],[2]]

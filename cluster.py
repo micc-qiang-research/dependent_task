@@ -111,6 +111,9 @@ class Cluster:
     
     def get_core_number(self, server_id):
         return self.cores_number_array[server_id]
+
+    def get_start_core_number(self, server_id):
+        return sum(self.cores_number_array[:server_id])
     
     def get_server_by_core_id(self, core_id):
         for i, core_number in enumerate(self.cores_number_array):

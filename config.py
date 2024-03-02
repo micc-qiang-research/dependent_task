@@ -3,12 +3,12 @@ from types import SimpleNamespace
 run_config = SimpleNamespace(**{
     # report
     # "scheduler_show": ["SDTS","GenDoc", "HEFT","Optim"],
-    "scheduler_show": ["SDTS","GenDoc", "HEFT"],
+    "scheduler_show": ["SDTS","GenDoc", "HEFT","LCAAP"],
 
     # run_all
     # "scheduler_run": ["SDTS","GenDoc", "HEFT", "Optim"],
     # "scheduler_run": ["Optim"],
-    "scheduler_run": ["SDTS","GenDoc", "HEFT"],
+    "scheduler_run": ["SDTS","GenDoc", "HEFT", "LCAAP"],
     
     # generate_dataset
     "K": 5,
