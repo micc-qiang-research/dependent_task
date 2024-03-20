@@ -160,6 +160,11 @@ class Executor:
         for f in func:
             yield f,find_pos(f)
 
+
+    '''
+    下面是server操作layer的函数
+    '''
+
     # server含有哪些layer
     def __server_layer(self, server_id):
         if not hasattr(self, "server_layer"):
@@ -179,14 +184,19 @@ class Executor:
         if virtual_capacity:
             capacity = virtual_capacity
         return capacity - sum([self.layers[l].size for l in self.server_layer[server_id]])
+    
+    # 获取在server上部署func的layer增量
+    def get_func_deploy_increment(self, server_id, func_id):
+        need_layer = set(self.funcs[func_id].layer) - self.__server_layer(server_id)
+        return sum([self.layers[l].size for l in need_layer])
 
     # 判断server能否部署func
     def is_func_can_deploy(self, server_id, func_id, virtual_capacity=None):
-        need_layer = self.funcs[func_id].layer - self.__server_layer(server_id)
-        if sum([self.layers[l].size for l in need_layer]) <= self.__server_free_storage_size(server_id,  virtual_capacity):
+        if self.get_func_deploy_increment(server_id, func_id) <= self.__server_free_storage_size(server_id,  virtual_capacity):
             return True
         return False
     
+    # 将func部署到server
     def func_deploy(self, server_id, func_id):
         need_layer = set(self.funcs[func_id].layer) - self.__server_layer(server_id)
         for l in need_layer:

@@ -32,7 +32,7 @@ class SDTSPlus(Scheduler):
         priority_dict = { i: 0 for i in range(N)}
         assert N == len(vertices), "N != len(vertices)"
 
-        d_mean = np.sum(server_comm) / self.data.K**2 # edge server之间的平均带宽
+        d_mean = np.sum(server_comm) / self.data.K**2 # edge server之间的平均传输数据延迟
 
         for v in vertices:
             if v == N - 1 or v == 0:
@@ -50,9 +50,11 @@ class SDTSPlus(Scheduler):
         early_core_id = None
         early_server_id = -1
         for idx, server in enumerate(self.cluster.get_server()):
-            t_e = self.cluster.get_download_complete(idx) + func_edge_download[func][idx] + func_prepare[func] # 环境准备好时间
+            # t_e = self.cluster.get_download_complete(idx) + func_edge_download[func][idx] + func_prepare[func] # 环境准备好时间
             
-            # t_i = self.get_input_ready(idx, func) # 数据依赖准备好时间
+            # 镜像块共享感知，下载时间为 增量*下载延迟
+            t_e = self.cluster.get_download_complete(idx) + self.get_func_deploy_increment(idx, func) * self.servers[idx].download_latency
+
             t_i = self.get_input_ready(func, "edge", idx) # 数据依赖准备好时间
             t = max(t_e, t_i)
             # 得到在此服务器上的最早开始时间
@@ -65,7 +67,7 @@ class SDTSPlus(Scheduler):
         ### 选择 early_idx对应的server 作为目标server       
         # 更新server的下载完成时间
         t_download_start = self.cluster.get_download_complete(early_server_id)
-        t_download_finish = self.cluster.get_download_complete(early_server_id) + func_edge_download[func][early_server_id]
+        t_download_finish = self.cluster.get_download_complete(early_server_id) + self.get_func_deploy_increment(early_server_id, func) * self.servers[early_server_id].download_latency
         self.cluster.set_download_complete(early_server_id, t_download_finish)
 
         # 将任务放置

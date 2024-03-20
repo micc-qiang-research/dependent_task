@@ -115,6 +115,14 @@ class Cluster:
     def get_start_core_number(self, server_id):
         return sum(self.cores_number_array[:server_id])
     
+    '''
+    根据给定的core_id获取对应的server id
+    假设含有两个server: server 0、server 1, server 0 有2个core, server 1有2个core, 那么core的编号规则如下:
+    server 0 core 0 -> 0
+    server 0 core 1 -> 1
+    server 1 core 0 -> 2
+    server 1 core 1 -> 3
+    '''
     def get_server_by_core_id(self, core_id):
         for i, core_number in enumerate(self.cores_number_array):
             if core_id < core_number:
@@ -122,6 +130,9 @@ class Cluster:
             core_id -= core_number
         assert False, "core_id is too big"
 
+    '''
+    获取server_id:core_id在所有core编号规则下的id
+    '''
     def get_total_core_id(self, server_id, core_id):
         res = 0
         for i in range(server_id):
