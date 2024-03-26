@@ -5,33 +5,12 @@ import numpy as np
 from config import run_config
 from glob import glob
 import re
+import matplotlib.pyplot as plt
 
 '''
 文件系统的格式为: data_k_ccr_lfr_dcr.pkl
 若是对ccr做敏感性分析, 则保持其他参数不变, 提取ccr变量
 '''
-
-default_k = 5 
-default_ccr = 0.5 
-default_lfr = 2
-default_dcr = 5
-
-# 获取所有ccr文件
-def get_all_files_ccr():
-    filenames = glob("__result__/data_"+str(default_k)+"_*_"+str(default_lfr)+"_"+str(default_dcr)+".pkl")
-    return filenames
-
-def get_all_files_k():
-    filenames = glob("__result__/data_*_"+str(default_ccr)+"_"+str(default_lfr)+"_"+str(default_dcr)+".pkl")
-    return filenames
-
-def get_all_files_dcr():
-    filenames = glob("__result__/data_"+str(default_k)+"_"+str(default_ccr)+"_"+str(default_lfr)+"_*.pkl")
-    return filenames
-
-def get_all_files_lfr():
-    filenames = glob("__result__/data_"+str(default_k)+"_"+str(default_ccr)+"_*_"+str(default_dcr)+".pkl")
-    return filenames
 
 class Type:
     K = 0
@@ -39,28 +18,81 @@ class Type:
     LFR = 2
     DCR = 3
 
-# 获得匹配的文件所有取值
-def get_index(ltype, filenames):
-    res = []
+typename = ["k", "ccr", "lfr", "dcr"]
 
-    pattern_k = r'__result__/data_(.*?)_{}_.*'.format(default_ccr)
-    pattern_ccr = r'__result__/data_{}_(.*?)_.*'.format(default_k)
-    pattern_lfr = r'__result__/data_{}_{}_(.*?)_.*'.format(default_k, default_ccr)
-    pattern_dcr = r'__result__/data_{}_{}_{}_(.*?).pkl'.format(default_k, default_ccr, default_lfr)
-    patterns = [pattern_k, pattern_ccr, pattern_lfr, pattern_dcr]
-    pattern = patterns[ltype]
+default_k = 5 
+default_ccr = 0.5 
+default_lfr = 2
+default_dcr = 5
 
-    for file_name in filenames:
-        # 使用正则表达式匹配标记部分
-        match = re.search(pattern, file_name)
-        if match:
-            marked_part = match.group(1)
-            # 打印标记部分
-            res.append(float(marked_part))
-    return res
+class ExtractFileHelper:    
+
+    def get_filename_by_ccr(ccr):
+        return "__result__/data_{}_{}_{}_{}.pkl".format(default_k, ccr, default_lfr, default_dcr)
+
+    def get_filename_by_k(k):
+        return "__result__/data_{}_{}_{}_{}.pkl".format(k, default_ccr, default_lfr, default_dcr)
+
+    def get_filename_by_lfr(lfr):
+        return "__result__/data_{}_{}_{}_{}.pkl".format(default_k, default_ccr, lfr, default_dcr)
+
+    def get_filename_by_dcr(dcr):
+        return "__result__/data_{}_{}_{}_{}.pkl".format(default_k, default_ccr, default_lfr, dcr)
+
+    # 获取所有ccr文件
+    def get_all_files_ccr():
+        filenames = glob(ExtractFileHelper.get_filename_by_ccr("*"))
+        return filenames
+
+    def get_all_files_k():
+        filenames = glob(ExtractFileHelper.get_all_files_k("*"))
+        return filenames
+
+    def get_all_files_dcr():
+        filenames = glob(ExtractFileHelper.get_all_files_dcr("*"))
+        return filenames
+
+    def get_all_files_lfr():
+        filenames = glob(ExtractFileHelper.get_all_files_lfr("*"))
+        return filenames
     
+    # 获得匹配的文件所有取值
+    def get_index(ltype, filenames):
+        res = []
+
+        pattern_k = r'__result__/data_(.*?)_{}_.*'.format(default_ccr)
+        pattern_ccr = r'__result__/data_{}_(.*?)_.*'.format(default_k)
+        pattern_lfr = r'__result__/data_{}_{}_(.*?)_.*'.format(default_k, default_ccr)
+        pattern_dcr = r'__result__/data_{}_{}_{}_(.*?).pkl'.format(default_k, default_ccr, default_lfr)
+        patterns = [pattern_k, pattern_ccr, pattern_lfr, pattern_dcr]
+        pattern = patterns[ltype]
+
+        for file_name in filenames:
+            # 使用正则表达式匹配标记部分
+            match = re.search(pattern, file_name)
+            if match:
+                marked_part = match.group(1)
+                # 打印标记部分
+                res.append(float(marked_part))
+        return res
 
 
+# 获取所有文件
+get_all_files = [
+    ExtractFileHelper.get_all_files_k,\
+    ExtractFileHelper.get_all_files_ccr,\
+    ExtractFileHelper.get_all_files_lfr,\
+    ExtractFileHelper.get_all_files_dcr
+]
+
+get_filename = [
+    ExtractFileHelper.get_filename_by_k, \
+    ExtractFileHelper.get_filename_by_ccr, \
+    ExtractFileHelper.get_filename_by_lfr, \
+    ExtractFileHelper.get_filename_by_dcr
+]
+
+scheduler = run_config.scheduler_show
 
 '''
     返回格式：一个字典 + ccr取值
@@ -73,17 +105,43 @@ def get_index(ltype, filenames):
     ccr value:
         [0.1, 0.5, 1.0, 1.5, 2.0]
 '''
-def get_makespan_ccr():
-    filenames = get_all_files_ccr()
-    print(filenames)
-    print(get_index(Type.K, filenames))
-    print(get_index(Type.CCR, filenames))
-    print(get_index(Type.LFR, filenames))
-    print(get_index(Type.DCR, filenames))
+def get_makespan(ltype):
+    filenames = get_all_files[ltype]()
+    vals = ExtractFileHelper.get_index(ltype, filenames)
+    vals.sort()
+    makespans = {s:[] for s in scheduler}
+    for val in vals:
+        file = get_filename[ltype](val)
+        with open(file, 'rb') as handle:
+            data = pickle.load(handle)
+            for s in scheduler:
+                column = "makespan_"+s
+                makespans[s].append(data[column].mean().round(2))
+    return makespans, vals
 
+def draw_linear(x_name, x, ys):
+    # print(ys["SDTSPlus"])
+    for s in scheduler:
+        plt.plot(x, ys[s], label=s)
 
-get_makespan_ccr()
+    # plt.plot(x, [1,2,3,4,5])
+    # 添加标题和轴标签
+    plt.title(x_name)
+    plt.xlabel(x_name)
+    plt.ylabel('Avg. Makespan')
+    plt.xticks(x)
 
+    # 添加图例
+    plt.legend()
+
+    # 展示图形
+    plt.show()
+
+def draw_sensibility(ltype):
+    makespans, vals = get_makespan(ltype)
+    draw_linear(typename[ltype], vals, makespans)
+
+draw_sensibility(Type.CCR)
 
 # with open(get_in_result_path('data.pkl'), 'rb') as handle:
 #     data = pickle.load(handle)

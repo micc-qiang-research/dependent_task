@@ -125,8 +125,8 @@ class RunExperiment:
 
 if __name__ == '__main__':
     CCRs = [0.1,0.5,1.0,1.5,2.0] # commucation to computation ratio
-    DCRs = [5] # download to computation ratio
-    LFRs = [2] # Layer number to function number ratio
+    DCRs = [0.5, 1.0 ,2.0 ,3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # download to computation ratio
+    LFRs = [3.0, 5.0, 7.0, 10.0] # Layer number to function number ratio
     K = [5] # server number
 
 
