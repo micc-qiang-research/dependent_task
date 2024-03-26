@@ -10,7 +10,7 @@ from config import run_config
 _t = 1 # 平均执行时间， cloud: 0.75t
 _b = 1 # 下载镜像的延迟 cloud: 0.5b
 _c = range(1, 4) # 核数量 cloud:4
-_e = 0.5 # 默认edge权重
+_e = 1 # 默认edge权重
 _l = 1 # layer大小，归一化为1
 # _d = 1 # server之间传送数据的开销 _e*_d / _t = CCR
 
@@ -26,23 +26,28 @@ def round_2(f):
         return round(res, 2)
     return wrapper
 
+# 获取随机执行时间
 @round_2
 def get_computation_time(size=1):
     return np.random.uniform(0.5*_t, 1.5*_t, size=size).tolist()
 
+# 获取每条变的权重，即函数之间数据传输开销
 @round_2
 def get_node_weight():
     return np.random.uniform(0.5*_e, 1.5*_e)
 
+# 获取edge server下载镜像的延迟
 @round_2
 def get_download_latency():
     return np.random.uniform(0.5*_b, 1.5*_b)
 
+# 获取机器之间通信的延迟
 @round_2
 def get_commucation_time(ccr=0.5):
     _d = ccr * _t / _e
     return np.random.uniform(0.5*_d, 1.5*_d)
 
+# 获取镜像块大小
 @round_2
 def get_layer_size(size=1):
     return np.random.uniform(0.5*_l, 1.5*_l, size=size).tolist()
@@ -155,6 +160,17 @@ def build_data(filename, K=3, lfr=2, ccr=0.5, dcr=5):
             "generate_pos": generate_pos  # 生成位置
     }
 
+def traverse_and_build(K, ccr, lfr, dcr):
+    output_dir = "./data/json/"
+    
+    filenames = glob('dag/*.dot')
+    
+    for filename in tqdm(filenames):
+        data = build_data(filename, K=K, lfr=lfr, ccr=ccr, dcr=dcr)
+        separators = (',', ':')
+        with open(path.join(output_dir, path.basename(filename)[:-3])+"json", "w") as f:
+            json.dump(data, f, indent=2, separators=separators)
+
 
 if __name__ == "__main__":
     # data = build_data('dag/10_0.1_0.2_0.2_1.dot')
@@ -162,13 +178,5 @@ if __name__ == "__main__":
     # with open("data.json", "w") as f:
     #     json.dump(data, f, indent=2, separators=separators)
 
-    output_dir = "./data/json/"
-    
-    filenames = glob('dag/*.dot')
-    
-    for filename in tqdm(filenames):
-        data = build_data(filename, K=run_config.K, lfr=run_config.lfr, ccr=run_config.ccr, dcr=run_config.dcr)
-        separators = (',', ':')
-        with open(path.join(output_dir, path.basename(filename)[:-3])+"json", "w") as f:
-            json.dump(data, f, indent=2, separators=separators)
+    traverse_and_build(K=run_config.K, lfr=run_config.lfr, ccr=run_config.ccr, dcr=run_config.dcr)
         
