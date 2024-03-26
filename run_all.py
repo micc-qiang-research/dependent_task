@@ -124,18 +124,19 @@ class RunExperiment:
 
 
 if __name__ == '__main__':
-    CCRs = [0.1,0.5,1.0,1.5,2.0] # commucation to computation ratio
-    DCRs = [0.5, 1.0 ,2.0 ,3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # download to computation ratio
-    LFRs = [3.0, 5.0, 7.0, 10.0] # Layer number to function number ratio
     K = [5] # server number
+    CCRs = [0.1, 0.5, 1.0, 1.5] # commucation to computation ratio
+    LFRs = [3.0, 5.0, 7.0, 10.0] # Layer number to function number ratio
+    DCRs = [0.5, 1.0 ,2.0, 3.0] # download to computation ratio
 
     for k in K:
         for ccr in CCRs:
-            for ldf in LFRs:
+            for lfr in LFRs:
                 for dcr in DCRs:
+                    data = [k, ccr, lfr, dcr]
                     print("==========================")
-                    print("k: {}, ccr: {}, lfr: {}, dcr: {}".format(K[0], ccr, LFRs[0], DCRs[0]))
+                    print("k: {}, ccr: {}, lfr: {}, dcr: {}".format(*data))
                     print("building data...")
-                    traverse_and_build(K[0], ccr, LFRs[0], DCRs[0])
+                    traverse_and_build(*data)
                     print("test algorithm...")
-                    RunExperiment.run([K[0], ccr, LFRs[0], DCRs[0]])
+                    RunExperiment.run(data)

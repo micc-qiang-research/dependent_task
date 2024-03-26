@@ -22,8 +22,8 @@ typename = ["k", "ccr", "lfr", "dcr"]
 
 default_k = 5 
 default_ccr = 0.5 
-default_lfr = 2
-default_dcr = 5
+default_lfr = 2.0
+default_dcr = 5.0
 
 class ExtractFileHelper:    
 
