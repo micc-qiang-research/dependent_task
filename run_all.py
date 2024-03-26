@@ -22,7 +22,7 @@ class RunExperiment:
     keys = ['k', 'ccr', 'lfr', 'dcr']
 
     # 开启的线程个数
-    cpu_cnt = 4
+    cpu_cnt = 16
 
     # 将标准输出重定向
     def redirect_stdout_stderr(out, err):
@@ -129,11 +129,13 @@ if __name__ == '__main__':
     LFRs = [3.0, 5.0, 7.0, 10.0] # Layer number to function number ratio
     K = [5] # server number
 
-
-    for ccr in CCRs:
-        print("==========================")
-        print("k: {}, ccr: {}, lfr: {}, dcr: {}".format(K[0], ccr, LFRs[0], DCRs[0]))
-        print("building data...")
-        traverse_and_build(K[0], ccr, LFRs[0], DCRs[0])
-        print("test algorithm...")
-        RunExperiment.run([K[0], ccr, LFRs[0], DCRs[0]])
+    for k in K:
+        for ccr in CCRs:
+            for ldf in LFRs:
+                for dcr in DCRs:
+                    print("==========================")
+                    print("k: {}, ccr: {}, lfr: {}, dcr: {}".format(K[0], ccr, LFRs[0], DCRs[0]))
+                    print("building data...")
+                    traverse_and_build(K[0], ccr, LFRs[0], DCRs[0])
+                    print("test algorithm...")
+                    RunExperiment.run([K[0], ccr, LFRs[0], DCRs[0]])
