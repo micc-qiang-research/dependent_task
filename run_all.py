@@ -8,39 +8,52 @@ import pandas as pd
 import pickle
 import multiprocessing as mp
 from glob import glob
-import warnings
-import logging
 from util import get_in_result_path
 from config import run_config
+import sys
+import concurrent.futures
+from tqdm import tqdm
 
-warnings.filterwarnings('ignore',category=RuntimeWarning)
-logging.basicConfig(filename="Error.log", level=logging.DEBUG)
 
-def solve(tuple_val):
-    idx,filename = tuple_val
-    print("Evaluating {}".format(idx))
+def __redirect_stdout_stderr(out, err):
+    # 将标准输出重定向到文件
+    sys.stdout = open(out, 'w')
+    # 将标准错误重定向到文件
+    # sys.stderr = open(err, 'w')
+
+def __recover_stdout_stderr():
+    sys.stdout.close()
+    # sys.stderr.close()
+    sys.stdout = sys.__stdout__
+    # sys.stderr = sys.__stderr__
+
+
+def run(pack):
+    # 文件编号，文件名
+    progree_bar,filename = pack
+    print("start exec ", filename)
+    param = run_one(filename)
+    progree_bar.update(1)
+    return param
+
+
+def run_one(filename):
     val = filename.split('/')[2].split('.json')[0].split('_')
-    result = []
     param = dict(zip(keys, val))
+    try:
+        data = DataByJson(filename) # read Data
+        scheduler = run_config.scheduler_run
+        for s in scheduler:
+            sched = eval(s)
+            param['makespan_'+s] = Analysis(data, *sched(data, None).schedule()).summarize()
+        
+        # 每一条数据是一个dict，含有如下字段：['n', 'fat', 'density', 'regularity', 'jump', 'makespan_xx']
+    except:
+        print("Error occure")
+        exit(1)
+    return param
 
-    for _ in range(n_trials):
-        try:
-            data = DataByJson(filename) # read Data
-            # scheduler = ["SDTS","GenDoc", "HEFT", "Optim"]
-            scheduler = run_config.scheduler_run
-            for s in scheduler:
-                sched = eval(s)
-                param['makespan_'+s] = Analysis(data, *sched(data, None).schedule()).summarize()
-            result.append(param.copy())
-        except:
-            # logging.error("Error occured", exc_info=True)
-            # msg = 'filename: {}, ccr: {}, b: {}, n_nodes: {}, p: {}\ncomp_matrix:\n{} adj_matrix:\n{}'.format(
-            #     filename, param['ccr'], param['b'], inputs[0], inputs[1], inputs[2], inputs[3])
-            # logging.info(msg)
-            print("Error occure")
-    
-    return result
-
+# 增量保存
 def save(filename, data):
     result_filename = get_in_result_path(filename)
     if os.path.exists(result_filename):
@@ -85,20 +98,32 @@ batch_number = 4
 
 keys = ['n', 'fat', 'density', 'regularity', 'jump']
 
+# 获取所有的测试文件
 filenames = glob('data/json/*.json')
 
+# 开启的线程个数
 cpu_cnt = 4
-
-pool = mp.Pool(cpu_cnt)
 print('Using {} cores'.format(cpu_cnt))
 
 # columns = ['n', 'fat', 'density', 'regularity', 'jump', 'ccr','b','p', 'makespan_HEFT', 'makespan_PSO', 'makespan_IPEFT']
+
+
 data = []
-chunk_size = len(filenames)//batch_number
-for i in range(batch_number):
-    if i==batch_number-1:
-        result_list = pool.map(solve, enumerate(filenames[i*chunk_size:]))
-    else:
-        result_list = pool.map(solve, enumerate(filenames[i*chunk_size:(i+1)*chunk_size]))
-    data.extend([result for sublist in result_list for result in sublist])
+
+__redirect_stdout_stderr(get_in_result_path("run_all_out.txt"), get_in_result_path("run_all_err.txt"))
+# 创建线程池
+with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_cnt) as executor:
+
+    with tqdm(total=len(filenames), desc='Progress', ncols=80) as progress_bar:
+        # 提交任务给线程池
+        futures = [executor.submit(run, (progress_bar, filename)) for filename in filenames]
+        # 获取任务的返回结果
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            data.append(result)
+
+__recover_stdout_stderr()
+print(data)
+
+# 保存结果
 save("data.pkl", data)
