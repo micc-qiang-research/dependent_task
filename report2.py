@@ -22,8 +22,8 @@ typename = ["k", "ccr", "lfr", "dcr"]
 
 default_k = 5 
 default_ccr = 0.5 
-default_lfr = 2.0
-default_dcr = 5.0
+default_lfr = 5.0
+default_dcr = 2.0
 
 class ExtractFileHelper:    
 
@@ -45,15 +45,15 @@ class ExtractFileHelper:
         return filenames
 
     def get_all_files_k():
-        filenames = glob(ExtractFileHelper.get_all_files_k("*"))
+        filenames = glob(ExtractFileHelper.get_filename_by_k("*"))
         return filenames
 
     def get_all_files_dcr():
-        filenames = glob(ExtractFileHelper.get_all_files_dcr("*"))
+        filenames = glob(ExtractFileHelper.get_filename_by_dcr("*"))
         return filenames
 
     def get_all_files_lfr():
-        filenames = glob(ExtractFileHelper.get_all_files_lfr("*"))
+        filenames = glob(ExtractFileHelper.get_filename_by_lfr("*"))
         return filenames
     
     # 获得匹配的文件所有取值
@@ -142,6 +142,8 @@ def draw_sensibility(ltype):
     draw_linear(typename[ltype], vals, makespans)
 
 draw_sensibility(Type.CCR)
+draw_sensibility(Type.LFR)
+draw_sensibility(Type.DCR)
 
 # with open(get_in_result_path('data.pkl'), 'rb') as handle:
 #     data = pickle.load(handle)

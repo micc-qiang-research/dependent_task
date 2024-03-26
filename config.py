@@ -13,7 +13,7 @@ run_config = SimpleNamespace(**{
     
     # generate_dataset
     "K": 5,
-    "lfr": 2,
     "ccr": 0.5,
-    "dcr": 5
+    "lfr": 5.0,
+    "dcr": 2.0
 })

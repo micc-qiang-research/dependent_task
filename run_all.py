@@ -39,12 +39,9 @@ class RunExperiment:
         # sys.stderr = sys.__stderr__
 
     # 对某一个filename执行各个调度器测试
-    def run_once_wrapper(pack):
-        # 文件编号，文件名
-        progree_bar,filename = pack
+    def run_once_wrapper(filename):
         print("start exec ", filename)
         param = RunExperiment.run_once(filename)
-        progree_bar.update(1)
         return param
 
     def run_once(filename):
@@ -104,16 +101,14 @@ class RunExperiment:
         # 标准输出重定向到文件，避免干扰
         RunExperiment.redirect_stdout_stderr(get_in_result_path("run_all_out.txt"), get_in_result_path("run_all_err.txt"))
 
-        # 创建线程池
-        with concurrent.futures.ThreadPoolExecutor(max_workers=RunExperiment.cpu_cnt) as executor:
+        pool = mp.Pool(RunExperiment.cpu_cnt)
+        pbar = tqdm(total=len(filenames))
 
-            with tqdm(total=len(filenames), desc='Progress', ncols=80) as progress_bar:
-                # 提交任务给线程池
-                futures = [executor.submit(RunExperiment.run_once_wrapper, (progress_bar, filename)) for filename in filenames]
-                # 获取任务的返回结果
-                for future in concurrent.futures.as_completed(futures):
-                    result = future.result()
-                    data.append(result)
+        # 创建线程池
+        results = [pool.apply_async(RunExperiment.run_once_wrapper, (filename, ),callback=lambda _:pbar.update(1)) for filename in filenames]
+
+        for result in results:
+            data.append(result.get())
 
         # 恢复标准输出
         RunExperiment.recover_stdout_stderr()
@@ -123,11 +118,37 @@ class RunExperiment:
         RunExperiment.save("data_"+label+".pkl", data)
 
 
+# 判断对应的数据集目录是否存在
+def check_and_build(k ,ccr, lfr, dcr):
+    import os
+    import shutil
+
+    gen_path = "data/json"
+    save_path = "data/json_{}_{}_{}_{}".format(k, ccr, lfr, dcr)  # 文件夹路径
+
+    if os.path.exists(save_path):
+        shutil.rmtree(gen_path)
+        shutil.copytree(save_path, gen_path)
+        return True
+    return False
+
+def save_dataset(k ,ccr, lfr, dcr):
+    import shutil
+    gen_path = "data/json"
+    save_path = "data/json_{}_{}_{}_{}".format(k, ccr, lfr, dcr)  # 文件夹路径
+    shutil.copytree(gen_path, save_path)
+
+
 if __name__ == '__main__':
     K = [5] # server number
     CCRs = [0.1, 0.5, 1.0, 1.5] # commucation to computation ratio
     LFRs = [3.0, 5.0, 7.0, 10.0] # Layer number to function number ratio
-    DCRs = [0.5, 1.0 ,2.0, 3.0] # download to computation ratio
+    DCRs = [1.0, 2.0, 3.0, 5.0] # download to computation ratio
+
+    # K = [5] # server number
+    # CCRs = [0.5] # commucation to computation ratio
+    # LFRs = [5.0] # Layer number to function number ratio
+    # DCRs = [2.0] # download to computation ratio
 
     for k in K:
         for ccr in CCRs:
@@ -137,6 +158,10 @@ if __name__ == '__main__':
                     print("==========================")
                     print("k: {}, ccr: {}, lfr: {}, dcr: {}".format(*data))
                     print("building data...")
-                    traverse_and_build(*data)
+                    if(not check_and_build(*data)):
+                        traverse_and_build(*data)
+                        save_dataset(*data)
+                    else:
+                        print("!read from baking")
                     print("test algorithm...")
                     RunExperiment.run(data)
