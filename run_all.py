@@ -142,8 +142,8 @@ def save_dataset(k ,ccr, lfr, dcr):
 if __name__ == '__main__':
     K = [5] # server number
     CCRs = [0.1, 0.5, 1.0, 1.5] # commucation to computation ratio
-    LFRs = [3.0, 5.0, 7.0, 10.0] # Layer number to function number ratio
-    DCRs = [1.0, 2.0, 3.0, 5.0] # download to computation ratio
+    LFRs = [1.0, 2.0, 3.0, 5.0] # Layer number to function number ratio
+    DCRs = [2.0, 5.0, 7.0, 10.0] # download to computation ratio
 
     # K = [5] # server number
     # CCRs = [0.5] # commucation to computation ratio

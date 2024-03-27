@@ -20,10 +20,10 @@ class Type:
 
 typename = ["k", "ccr", "lfr", "dcr"]
 
-default_k = 5 
-default_ccr = 0.5 
-default_lfr = 5.0
-default_dcr = 2.0
+default_k = run_config.K
+default_ccr = run_config.ccr
+default_lfr = run_config.lfr
+default_dcr = run_config.dcr
 
 class ExtractFileHelper:    
 

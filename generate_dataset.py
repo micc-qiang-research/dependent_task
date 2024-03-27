@@ -10,7 +10,7 @@ from config import run_config
 _t = 1 # 平均执行时间， cloud: 0.75t
 _b = 1 # 下载镜像的延迟 cloud: 0.5b
 _c = range(1, 4) # 核数量 cloud:4
-_e = 1 # 默认edge权重
+_e = 0.5 # 默认edge权重
 _l = 1 # layer大小，归一化为1
 # _d = 1 # server之间传送数据的开销 _e*_d / _t = CCR
 
@@ -55,7 +55,7 @@ def get_layer_size(size=1):
 # 随机生成函数依赖的镜像块信息
 @round_2
 def get_layer_info(L=10, dcr=5):
-    _size = dcr * _t / _l # _l * _size / _t = dcr
+    _size = dcr * _t / _l # _l * _size * _b / _t = dcr
     size = max(min(int(np.random.normal(_size, _size/3)),L),1)
     res = np.random.choice(range(L), size=size, replace=False) # replace=False表示不重复采样
     res.sort()
