@@ -125,11 +125,15 @@ def check_and_build(k ,ccr, lfr, dcr):
 
     gen_path = "data/json"
     save_path = "data/json_{}_{}_{}_{}".format(k, ccr, lfr, dcr)  # 文件夹路径
-
-    if os.path.exists(save_path):
+    
+    # 删除原目录
+    if os.path.exists(gen_path):
         shutil.rmtree(gen_path)
+    
+    if os.path.exists(save_path):
         shutil.copytree(save_path, gen_path)
         return True
+    os.mkdir(gen_path)
     return False
 
 def save_dataset(k ,ccr, lfr, dcr):
@@ -145,9 +149,9 @@ def check_exist(k ,ccr, lfr, dcr):
 
 if __name__ == '__main__':
     K = [5] # server number
-    CCRs = [0.1, 0.5, 1.0, 1.5] # commucation to computation ratio
-    LFRs = [1.0, 2.0, 5.0, 10.0] # Layer number to function number ratio
-    DCRs = [2.0, 5.0, 7.0, 10.0] # download to computation ratio
+    CCRs = [0.1, 0.5, 1.0, 1.5, 2.0] # commucation to computation ratio
+    LFRs = [1.0, 2.0, 3.0, 4.0, 5.0] # Layer number to function number ratio
+    DCRs = [2.0, 5.0, 7.0, 10.0, 20.0] # download to computation ratio
 
     # K = [5] # server number
     # CCRs = [0.5] # commucation to computation ratio

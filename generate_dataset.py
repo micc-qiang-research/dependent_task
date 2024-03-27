@@ -5,6 +5,7 @@ from os import path
 from collections.abc import Iterable
 from tqdm import tqdm
 from config import run_config
+import multiprocessing as mp
 
 
 _t = 1 # 平均执行时间， cloud: 0.75t
@@ -148,7 +149,7 @@ def build_data(filename, K=3, lfr=2, ccr=0.5, dcr=5):
     server_info[K-1][2] = 0.5 * _b
 
     
-    return {"N": n_nodes,      # 函数个数
+    return [filename, {"N": n_nodes,      # 函数个数
             "K": K,            # server个数
             "L": L,            # 镜像块个数
             "func_info": func_info,    # 函数信息：所需Layer
@@ -158,15 +159,23 @@ def build_data(filename, K=3, lfr=2, ccr=0.5, dcr=5):
             "server_info": server_info,  # server信息：核数、storage大小、下载镜像带宽
             "layer_info": layer_info,   # layer大小信息
             "generate_pos": generate_pos  # 生成位置
-    }
+    }]
 
 def traverse_and_build(K, ccr, lfr, dcr):
     output_dir = "./data/json/"
     
     filenames = glob('dag/*.dot')
-    
-    for filename in tqdm(filenames):
-        data = build_data(filename, K=K, lfr=lfr, ccr=ccr, dcr=dcr)
+
+    # 8个线程同时写
+    pool = mp.Pool(8)    
+    pbar = tqdm(total=len(filenames))
+
+    results = [pool.apply_async(build_data, (filename, K,lfr,ccr, dcr), callback=lambda _:pbar.update(1)) for filename in filenames]
+
+    for res in results:
+        result = res.get()
+        filename = result[0]
+        data = result[1]
         separators = (',', ':')
         with open(path.join(output_dir, path.basename(filename)[:-3])+"json", "w") as f:
             json.dump(data, f, indent=2, separators=separators)

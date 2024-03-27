@@ -149,11 +149,11 @@ def draw_sensibility(ltype):
 
 
 def get_makespan_total():
-    # filenames = glob("__result__/data_*.pkl")
+    filenames = glob("__result__/data_*.pkl")
     # filenames = get_all_files[Type.CCR]()
     # filenames = get_all_files[Type.LFR]()
     # filenames = get_all_files[Type.DCR]()
-    filenames = [ExtractFileHelper.get_file(default_k, default_ccr, 5.0, 2.0)]
+    # filenames = [ExtractFileHelper.get_file(default_k, default_ccr, 5.0, 2.0)]
 
     makespan = [[] for _ in scheduler]
     for filename in filenames:
