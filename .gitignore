@@ -4,4 +4,5 @@ gantt.json
 data.json
 dag/
 data/json*
+data/application*
 __result__
