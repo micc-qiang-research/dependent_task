@@ -26,7 +26,12 @@ default_ccr = run_config.ccr
 default_lfr = run_config.lfr
 default_dcr = run_config.dcr
 
-class ExtractFileHelper:    
+class ExtractFileHelper:
+    def get_all_files():
+        return glob("__result__/data_*.pkl")
+    
+    def get_file(k, ccr, lfr, dcr):
+        return "__result__/data_{}_{}_{}_{}.pkl".format(k, ccr, lfr, dcr)
 
     def get_filename_by_ccr(ccr):
         return "__result__/data_{}_{}_{}_{}.pkl".format(default_k, ccr, default_lfr, default_dcr)
@@ -144,7 +149,12 @@ def draw_sensibility(ltype):
 
 
 def get_makespan_total():
-    filenames = glob("__result__/data_*.pkl")
+    # filenames = glob("__result__/data_*.pkl")
+    # filenames = get_all_files[Type.CCR]()
+    # filenames = get_all_files[Type.LFR]()
+    # filenames = get_all_files[Type.DCR]()
+    filenames = [ExtractFileHelper.get_file(default_k, default_ccr, 5.0, 2.0)]
+
     makespan = [[] for _ in scheduler]
     for filename in filenames:
         with open(filename, 'rb') as handle:

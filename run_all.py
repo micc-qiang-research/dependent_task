@@ -139,10 +139,14 @@ def save_dataset(k ,ccr, lfr, dcr):
     shutil.copytree(gen_path, save_path)
 
 
+def check_exist(k ,ccr, lfr, dcr):
+    import os
+    return os.path.exists("__result__/data_{}_{}_{}_{}.pkl".format(k ,ccr, lfr, dcr))
+
 if __name__ == '__main__':
     K = [5] # server number
     CCRs = [0.1, 0.5, 1.0, 1.5] # commucation to computation ratio
-    LFRs = [1.0, 2.0, 3.0, 5.0] # Layer number to function number ratio
+    LFRs = [1.0, 2.0, 5.0, 10.0] # Layer number to function number ratio
     DCRs = [2.0, 5.0, 7.0, 10.0] # download to computation ratio
 
     # K = [5] # server number
@@ -155,8 +159,12 @@ if __name__ == '__main__':
             for lfr in LFRs:
                 for dcr in DCRs:
                     data = [k, ccr, lfr, dcr]
+                        
                     print("==========================")
                     print("k: {}, ccr: {}, lfr: {}, dcr: {}".format(*data))
+                    if check_exist(*data):
+                        print("using cache!")
+                        continue
                     print("building data...")
                     if(not check_and_build(*data)):
                         traverse_and_build(*data)
