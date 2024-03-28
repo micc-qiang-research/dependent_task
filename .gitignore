@@ -2,7 +2,7 @@ test/
 .vscode/
 gantt.json
 data.json
-dag/
+dag*
 data/json*
 data/application*
 __result__

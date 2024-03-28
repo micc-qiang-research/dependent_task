@@ -123,6 +123,7 @@ def get_makespan(ltype):
             for s in scheduler:
                 column = "makespan_"+s
                 makespans[s].append(data[column].mean().round(2))
+                # makespans[s].append(data[column].median().round(2))
     return makespans, vals
 
 def draw_linear(x_name, x, ys):

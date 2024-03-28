@@ -148,10 +148,10 @@ def check_exist(k ,ccr, lfr, dcr):
     return os.path.exists("__result__/data_{}_{}_{}_{}.pkl".format(k ,ccr, lfr, dcr))
 
 if __name__ == '__main__':
-    K = [5] # server number
-    CCRs = [0.1, 0.5, 1.0, 1.5, 2.0] # commucation to computation ratio
-    LFRs = [1.0, 2.0, 3.0, 4.0, 5.0] # Layer number to function number ratio
-    DCRs = [2.0, 5.0, 7.0, 10.0, 20.0] # download to computation ratio
+    K = run_config.range_K # server number
+    CCRs = run_config.range_ccr # commucation to computation ratio
+    LFRs = run_config.range_lfr # Layer number to function number ratio
+    DCRs = run_config.range_dcr # download to computation ratio
 
     # K = [5] # server number
     # CCRs = [0.5] # commucation to computation ratio

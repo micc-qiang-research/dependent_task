@@ -12,7 +12,7 @@ _t = 1 # 平均执行时间， cloud: 0.75t
 _b = 1 # 下载镜像的延迟 cloud: 0.5b
 _c = range(1, 4) # 核数量 cloud:4
 _e = 0.5 # 默认edge权重
-_l = 1 # layer大小，归一化为1
+_l = 0.2 # layer大小，归一化为0.2， 100M带宽下载0.2s即可
 # _d = 1 # server之间传送数据的开销 _e*_d / _t = CCR
 
 import pydot
