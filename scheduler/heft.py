@@ -5,6 +5,17 @@ import networkx as nx
 from util import *
 from .executor import Executor
 
+'''
+将HEFT算法用在本场景：
+方法：
+    每个核相当于HEFT的一个processor，然后调用heft进行调度
+    得到调度结果后，保存每个函数调度的位置（调度到哪个核）
+    映射到实际场景，使用拓扑排序的顺序调度每个函数，上述算法只确定调度位置
+
+局限性：
+    没有考虑函数的启动延迟，偏好将函数调度到相同机器减少数据传输开销，使得某机器拉取镜像时间过长
+'''
+
 class HEFT(Scheduler):
     def __init__(self, data,config):
         super().__init__(data, config)
@@ -89,7 +100,14 @@ class HEFT(Scheduler):
 
         return replica, place, download_sequence, Executor.TOPOLOGY
 
+
+    def change_comm2band(self):
+        for i in range(self.proc_number):
+            for j in range(self.proc_number):
+                self.server_comm[i][j] = 1/self.server_comm[i][j] if self.server_comm[i][j] != 0 else self.server_comm[i][j]
+
     def schedule(self):
+        self.change_comm2band() # heft需要使用带宽
         self.sched, self.task_sched, _ = heft.schedule_dag(self.G, 
                             communication_matrix=self.server_comm, 
                             computation_matrix=self.total_process,communication_startup=np.zeros(self.server_comm.shape[0]))
