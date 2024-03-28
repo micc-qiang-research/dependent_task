@@ -158,13 +158,14 @@ if __name__ == '__main__':
     # LFRs = [5.0] # Layer number to function number ratio
     # DCRs = [2.0] # download to computation ratio
 
+    cnt = 0
     for k in K:
         for ccr in CCRs:
             for lfr in LFRs:
                 for dcr in DCRs:
                     data = [k, ccr, lfr, dcr]
-                        
-                    print("==========================")
+                    cnt += 1
+                    print(f"==========={cnt}/{len(K)*len(CCRs)*len(LFRs) * len(DCRs)}===============")
                     print("k: {}, ccr: {}, lfr: {}, dcr: {}".format(*data))
                     if check_exist(*data):
                         print("using cache!")

@@ -4,16 +4,26 @@ import math
 import numpy as np
 from .executor import Executor
 
+'''
+方法：
+    1.为模拟edge server部署的函数配置限制。算法对server部署函数限制如下：假设cloud部署的函数配置无限，每台edge部署的函数数量为 (func_number // edge server number) + 1。效果不好，不如改为无限制
+局限性：
+    1. 没有考虑单台机器同一时刻执行任务的限制， 
+    2. 存在函数副本的同时有启动延迟，那么情况就更坏了，因为镜像块要拉取多次
+'''
 class GenDoc(Scheduler):
     def __init__(self, data, config):
         super().__init__(data, config)
-        # edge server - func config deploy
+        # func config - edge server deploy
         self.fc_es_deploy = np.array([[0 for _ in range(self.K)] for _ in range(self.N)])
         
-        # 假设所有server部署了所有函数
-        # for i in range(self.K):
+        # 假设cloud部署了所有函数
         for j in range(self.source+1, self.sink):
             self.deploy_func_config(self.get_cloud_id(),j)
+
+        # edge server上部署的函数限制
+        # self.edge_deploy_limit = self.N // (self.K-1) + 1
+        self.edge_deploy_limit = self.N 
 
     def get_func_config_size_by_server_id(self, server_id):
         return np.sum(self.fc_es_deploy[:,server_id])
@@ -45,17 +55,17 @@ class GenDoc(Scheduler):
         col = func_process_rank[:,0]
 
         # 获取最多次数
-        C_ = -1
-        for i in range(edge_server_number):
-            funcs = []
-            for j in col:
-                if j == i:
-                    funcs.append(i)
-            C_ = max(C_, self.get_func_total_size(funcs))
+        # C_ = -1
+        # for i in range(edge_server_number):
+        #     funcs = []
+        #     for j in col:
+        #         if j == i:
+        #             funcs.append(i)
+            # C_ = max(C_, self.get_func_total_size(funcs))
+        # C_vir = [max(C_, c.storage) for c in self.servers[:-1]]
+        # assert len(C_vir) == edge_server_number, "edge server number not match"
 
-        C_vir = [max(C_, c.storage) for c in self.servers[:-1]]
-
-        assert len(C_vir) == edge_server_number, "edge server number not match"
+        deploy_num = [0] * edge_server_number
 
         S_ = set(range(edge_server_number))
         while len(S_) != 0:
@@ -71,9 +81,10 @@ class GenDoc(Scheduler):
                 if server_id in S_:
                     ok = True
                     self.deploy_func_config(server_id, func_id)
-
+                    deploy_num[server_id]+=1
                     # reach capacity limit
-                    if self.func_deploy_and_check(server_id, func_id, C_vir[server_id]):
+                    # if self.func_deploy_and_check(server_id, func_id, C_vir[server_id]):
+                    if self.edge_deploy_limit == deploy_num[server_id]:
                         S_.remove(server_id)
             # no process
             if not ok:
@@ -86,12 +97,12 @@ class GenDoc(Scheduler):
     ############## fixdoc start ######################
 
     '''
-        func 部署到 server上完成时间，若server为None，则部署到生成该请求的server上
-        u -> v      (func_id)
-        k    server (server_id)
+        func v 部署到 server s上完成时间，若server为None，则部署到生成该请求的server上
+        u -> v  (func_id)
+        k    s  (server_id)
         前置执行完时间 + 数据传输时间 + 执行时间
     '''
-    def get_earliest_finish(self, v, server, P, F):
+    def get_earliest_finish(self, v, s, P, F):
         if v == self.source:
             return 0
         res = 0
@@ -100,16 +111,16 @@ class GenDoc(Scheduler):
             # 根据每个前置任务，计算最短完成时间
             predence = math.inf
             if u == self.source:
-                assert server!=None, "source trans data to sink is not allow"
-                ans = self.get_weight(u,v)*self.server_comm[self.generate_pos][server] + P[v][server]
+                assert s!=None, "source trans data to sink is not allow"
+                ans = self.get_weight(u,v)*self.server_comm[self.generate_pos][s] + P[v][s]
                 predence = ans
                 strategy[u] = -1 # 代表user
             else:
                 for k in range(self.K):
-                    if server is None: # sink
+                    if s is None: # sink
                         ans = F[u][k] + self.get_weight(u,v)*self.server_comm[k][self.generate_pos]
                     else:
-                        ans = F[u][k] + self.get_weight(u,v)*self.server_comm[k][server] + P[v][server]
+                        ans = F[u][k] + self.get_weight(u,v)*self.server_comm[k][s] + P[v][s]
                     if predence > ans:
                         predence = ans
                         strategy[u] = k
