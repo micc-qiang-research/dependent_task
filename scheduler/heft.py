@@ -98,7 +98,7 @@ class HEFT(Scheduler):
                 proc = scheduler.proc
                 place[proc].append(task)
 
-        return replica, place, download_sequence, Executor.TOPOLOGY
+        return replica, place, download_sequence, Executor.CUSTOM, self.sorted_nodes
 
 
     def change_comm2band(self):
@@ -108,10 +108,16 @@ class HEFT(Scheduler):
 
     def schedule(self):
         self.change_comm2band() # heft需要使用带宽
-        self.sched, self.task_sched, _ = heft.schedule_dag(self.G, 
+        self.sorted_nodes ,self.sched, self.task_sched, _ = heft.schedule_dag(self.G, 
                             communication_matrix=self.server_comm, 
                             computation_matrix=self.total_process,communication_startup=np.zeros(self.server_comm.shape[0]))
-        self.logger.debug(self.sched, self.task_sched)
+        self.logger.debug(self.sched)
+        self.logger.debug(self.task_sched)
+        
+        # 根据开始时间决定调度顺序
+        # sequence_order = [item[0] for item in sorted(self.task_sched.items(), key=lambda p:p[1].start)]
+        # self.logger.debug(sequence_order)
+        
         return self.output_scheduler_strategy()
 
         # gantt.showGanttChart(sched)

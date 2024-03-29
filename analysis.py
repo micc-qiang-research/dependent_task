@@ -6,7 +6,7 @@ from scheduler.executor import Executor
 from strategy import Strategy
 
 class Analysis(Executor):
-    def __init__(self, data, replica, place, download_sequence, gen_strategy = Executor.DUMB, config = None):
+    def __init__(self, data, replica, place, download_sequence, gen_strategy = Executor.DUMB, order = None, config = None):
         super().__init__(data, config)
         self.data = data
         self.replica = replica
@@ -14,6 +14,7 @@ class Analysis(Executor):
         self.download_sequence = download_sequence
         self.gen_strategy = self.get_gen_strategy(gen_strategy)
         self.config = config
+        self.order = order
 
         self.cloud_start_core_number = self.cluster.get_total_core_number() - self.servers[-1].core
 
@@ -81,7 +82,7 @@ class Analysis(Executor):
         draw_gantt()
 
     def execute(self):
-        for func,procs in self.gen_strategy(self.place):
+        for func,procs in self.gen_strategy(self.place, self.order):
             for idx,proc in enumerate(procs):
                 if func == self.source:
                     self.gs(func).deploy("edge", self.generate_pos, 0,0,0,0,0)

@@ -114,7 +114,7 @@ class SDTSPlus(Scheduler):
         self.logger.debug(f"place: {place}")
         self.logger.debug(f"download_sequence: {download_sequence}")
         
-        return replica, place, download_sequence, Executor.DUMB
+        return replica, place, download_sequence, Executor.CUSTOM, self.sorted_nodes
             
     def schedule(self):
         G = self.G
@@ -125,6 +125,9 @@ class SDTSPlus(Scheduler):
 
         priority_dict =  self.priority(func_edge_download, server_comm, func_process)
 
+        # 记录调度顺序
+        self.sorted_nodes = []
+
         L = PQueue()
         L.put((-priority_dict[0],0))
         N = self.data.N
@@ -132,6 +135,7 @@ class SDTSPlus(Scheduler):
         while not L.empty():
             _, v = L.get()
             if v in self.is_scheduler: continue
+            self.sorted_nodes.append(v)
             if v == 0 or v == N - 1:
                 if v == 0:
                     self.gs(v).deploy("edge", server_id=self.generate_pos, core_id=0,t_execute_start=0, t_execute_end=0)
