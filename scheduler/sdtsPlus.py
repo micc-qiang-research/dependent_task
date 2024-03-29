@@ -69,6 +69,7 @@ class SDTSPlus(Scheduler):
         t_download_start = self.cluster.get_download_complete(early_server_id)
         t_download_finish = self.cluster.get_download_complete(early_server_id) + self.get_func_deploy_increment(early_server_id, func) * self.servers[early_server_id].download_latency
         self.cluster.set_download_complete(early_server_id, t_download_finish)
+        self.func_deploy(early_server_id, func)
 
         # 将任务放置
         self.cluster.place(early_server_id, early_core_id, early_start_time - func_prepare[func], early_start_time + func_process[func][early_server_id])

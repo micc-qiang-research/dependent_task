@@ -154,7 +154,7 @@ def get_makespan_total():
     # filenames = get_all_files[Type.CCR]()
     # filenames = get_all_files[Type.LFR]()
     # filenames = get_all_files[Type.DCR]()
-    # filenames = [ExtractFileHelper.get_file(default_k, default_ccr, 5.0, 2.0)]
+    # filenames = [ExtractFileHelper.get_file(default_k, default_ccr, default_lfr, default_dcr)]
 
     makespan = [[] for _ in scheduler]
     for filename in filenames:

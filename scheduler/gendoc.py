@@ -7,6 +7,7 @@ from .executor import Executor
 '''
 方法：
     1.为模拟edge server部署的函数配置限制。算法对server部署函数限制如下：假设cloud部署的函数配置无限，每台edge部署的函数数量为 (func_number // edge server number) + 1。效果不好，不如改为无限制
+    2. 不同edge也可能运行相同函数
 局限性：
     1. 没有考虑单台机器同一时刻执行任务的限制， 
     2. 存在函数副本的同时有启动延迟，那么情况就更坏了，因为镜像块要拉取多次
