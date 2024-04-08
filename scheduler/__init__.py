@@ -5,3 +5,4 @@ from .gendoc import *
 from .optim import *
 from .lcaap import *
 from .sdtsPlus import *
+from .propose import *
