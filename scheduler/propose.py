@@ -27,6 +27,7 @@ class Propose(Scheduler):
         self.range_func,self.range_server,self.range_layer,self.range_core = range_func,range_server,range_layer,range_core
 
         use_binary = False
+        image_related = False # 是否考虑Image相关的约束，若为False,假设下载镜像带宽无限，不用考虑镜像约束
 
 
         ########### 决策 start ###########################
@@ -50,21 +51,21 @@ class Propose(Scheduler):
         else:
             ############### 1.关键决策变量 #############
             # h_i_n_k，函数i是否在机器n的核k上运行
-            mdl.h = mdl.binary_var_cube(range_func, range_server, range_core, name=lambda fsc: "h_%d_%d_%d" % fsc)
+            mdl.h = mdl.continuous_var_cube(range_func, range_server, range_core, name=lambda fsc: "h_%d_%d_%d" % fsc)
             
             # p_n_l1_l2 机器n中镜像块l1和l2的下载序列关系
             mdl.P = mdl.continuous_var_cube(range_server, range_layer, range_layer, name=lambda sll: "p_%d_%d_%d" % sll, ub=1)
             
             # ############# 2.辅助决策变量 ###############
             # X_i_n 函数i是否部署到机器n
-            mdl.X = mdl.binary_var_matrix(range_func, range_server, name=lambda fs: "X_%d_%d" % fs)
+            mdl.X = mdl.continuous_var_matrix(range_func, range_server, name=lambda fs: "X_%d_%d" % fs)
 
             # XX_i_j_n_n' 函数i是否部署到 n，并且函数j是否部署到 n'
             XX_ = [(i,j,n,n_) for i in range_func for j in range_func for n in range_server for n_ in range_func]
             mdl.XX = mdl.continuous_var_dict(XX_, name=lambda ffnn: "XX_%d_%d_%d_%d" % ffnn, ub=1)
 
             # H_i_j 函数i和j是否部署到同一台机器的同一个核
-            mdl.H = mdl.binary_var_matrix(range_func, range_func, name=lambda ff: "H_%d_%d" % ff)
+            mdl.H = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "H_%d_%d" % ff)
 
             # g_n_l 机器n是否下载镜像块l
             mdl.G = mdl.continuous_var_matrix(range_server, range_layer, name=lambda sl: "g_%d_%d" % sl, ub=1) # server n 下不下载 layer l
@@ -81,7 +82,7 @@ class Propose(Scheduler):
             '''
             y_i_j 函数i和函数j至少一个先执行        
             '''
-            mdl.Y = mdl.binary_var_matrix(range_func, range_func, name=lambda ff: "y_%d_%d" % ff)    
+            mdl.Y = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "y_%d_%d" % ff)    
 
         # 函数i和函数j之间的通信带宽
         mdl.B = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "b_%d_%d" % ff)
@@ -114,32 +115,40 @@ class Propose(Scheduler):
                     for i in range_func)
         
         # （7）函数只能调度到含有所需镜像块的机器
-        mdl.add_constraints( X[i,n]*self.is_func_has_layer(i, l) <= G[n,l] \
-            for i in range_func \
-                for n in range_server \
-                    for l in range_layer)
+        if image_related:
+            mdl.add_constraints( X[i,n]*self.is_func_has_layer(i, l) <= G[n,l] \
+                for i in range_func \
+                    for n in range_server \
+                        for l in range_layer)
         
         # （16） 开始时间与数据传输及镜像准备好时间的关系
         mdl.add_constraints(T_start[i] >= T_data[i] for i in range_func)
-        mdl.add_constraints(T_start[i] >= T_image[i] for i in range_func)
+        if image_related:
+            mdl.add_constraints(T_start[i] >= T_image[i] for i in range_func)
 
         # （17） TET
         mdl.add_constraints(TET >= T_end[i] for i in range_func)
 
         # (20) Q值计算
-        mdl.add_constraints( Q[n,i,l1,l2] <= (X[i,n]+P[n,l1,l2])/2\
-                            for n in range_server \
-                            for i in range_func \
-                            for l1 in range_layer \
-                            for l2 in range_layer)
+        # mdl.add_constraints( Q[n,i,l1,l2] <= (X[i,n]+P[n,l1,l2])/2\
+        #                     for n in range_server \
+        #                     for i in range_func \
+        #                     for l1 in range_layer \
+        #                     for l2 in range_layer)
 
-        mdl.add_constraints( Q[n,i,l1,l2] >= (X[i,n]+P[n,l1,l2]-1)/2\
-                            for n in range_server \
-                            for i in range_func \
-                            for l1 in range_layer \
-                            for l2 in range_layer)
+        # mdl.add_constraints( Q[n,i,l1,l2] >= (X[i,n]+P[n,l1,l2]-1)/2\
+        #                     for n in range_server \
+        #                     for i in range_func \
+        #                     for l1 in range_layer \
+        #                     for l2 in range_layer)
         
-
+        if image_related:
+            mdl.add_constraints( Q[n,i,l1,l2] >= X[i,n]+P[n,l1,l2]-1 \
+                                for n in range_server \
+                                for i in range_func \
+                                for l1 in range_layer \
+                                for l2 in range_layer)
+        
         
         # (21) 函数部署到机器的某个核上 
         mdl.add_constraints(mdl.sum(h[i, n, c] for c in range_core) == X[i, n] \
@@ -149,17 +158,17 @@ class Propose(Scheduler):
         # 若某台机器没有那么多核，则强制h[i,n,c]=0
         for n in range_server:
             if servers[n].core < self.max_core_number:
-                mdl.add_constraints(h[i, n, c] == 0 \
+                mdl.add_constraints(h[i, n, k] == 0 \
                 for i in range_func \
                     for n in range_server \
-                        for c in range(servers[n].core, self.max_core_number))
+                        for k in range(servers[n].core, self.max_core_number))
         
         # (22) H[i,j]
         mdl.add_constraints(H[i,j] >= h[i,n,k] + h[j,n,k]-1\
                         for i in range_func \
                             for j in range_func \
-                                for n in range_server\
-                                    for k in range_core )
+                                for n in range_server \
+                                    for k in range_core)
         
 
         # (23) 每个时间点运行的任务数量不超过机器核数
@@ -167,48 +176,57 @@ class Propose(Scheduler):
                             for i in range_func \
                             for j in range_func if i!=j)
         
-        mdl.add_constraints(T_end[i] - T_start[j] <= (2-Y[j,i]-H[i,j])*M \
+        mdl.add_constraints(T_end[i] - T_start[j] <= (2-Y[i,j]-H[i,j])*M \
                             for i in range_func \
                             for j in range_func if i!=j)
         
         # i在j前或j在i前至少有一个满足
         mdl.add_constraints(Y[i,j] + Y[j,i] >= 1 \
                             for i in range_func \
-                            for j in range_func if i!=j)
-        
+                            for j in range_func if i!=j) 
 
-        # (24) 和 (25)合并写
-        mdl.add_constraints( P[n,l1, l2] + P[n,l2,l1] <= (G[n, l1] + G[n, l2]) / 2  \
-                            for n in range_server \
-                            for l1 in range_layer \
-                            for l2 in range_layer if l1 != l2)
+        if image_related:
+            # (24) 和 (25)合并写
+            # mdl.add_constraints( P[n,l1, l2] + P[n,l2,l1] <= (G[n, l1] + G[n, l2]) / 2  \
+            #                     for n in range_server \
+            #                     for l1 in range_layer \
+            #                     for l2 in range_layer if l1 != l2)
 
-        mdl.add_constraints( P[n,l1, l2] + P[n,l2,l1] >= (G[n, l1] + G[n, l2] - 1) / 2  \
-                            for n in range_server \
-                            for l1 in range_layer \
-                            for l2 in range_layer if l1 != l2)
+            # mdl.add_constraints( P[n,l1, l2] + P[n,l2,l1] >= (G[n, l1] + G[n, l2] - 1) / 2  \
+            #                     for n in range_server \
+            #                     for l1 in range_layer \
+            #                     for l2 in range_layer if l1 != l2)
+            mdl.add_constraints( P[n,l1, l2] + P[n,l2,l1] >= G[n, l1] + G[n, l2] - 1 \
+                                for n in range_server \
+                                for l1 in range_layer \
+                                for l2 in range_layer if l1 != l2)
 
-        # (26)
-        mdl.add_constraints( P[n,l1, l2] + P[n, l2, l3] + P[n, l3, l1] <= 2 \
-                            for n in range_server \
-                            for l1 in range_layer\
-                            for l2 in range_layer if l2 != l1 \
-                            for l3 in range_layer if l3 != l2 and l3 != l1)
+            # (26)
+            mdl.add_constraints( P[n,l1, l2] + P[n, l2, l3] + P[n, l3, l1] <= 2 \
+                                for n in range_server \
+                                for l1 in range_layer\
+                                for l2 in range_layer if l2 != l1 \
+                                for l3 in range_layer if l3 != l2 and l3 != l1)
 
-        # (27)
-        mdl.add_constraints( P[n,l, l] == G[n,l] \
-                            for n in range_server \
-                            for l in range_layer)
+            # (27)
+            mdl.add_constraints( P[n,l, l] == G[n,l] \
+                                for n in range_server \
+                                for l in range_layer)
 
         # 下面三条约束计算函数i和函数j之间的带宽
         # (28)
-        mdl.add_constraints(XX[i,j,n,n_] >= (X[i,n]+X[j,n_]-1)/2\
-            for i in range_func \
-                for j in range_func \
-                    for n in range_server \
-                        for n_ in range_server)
+        # mdl.add_constraints(XX[i,j,n,n_] >= (X[i,n]+X[j,n_]-1)/2\
+        #     for i in range_func \
+        #         for j in range_func \
+        #             for n in range_server \
+        #                 for n_ in range_server)
         
-        mdl.add_constraints(XX[i,j,n,n_] <= (X[i,n]+X[j,n_])/2\
+        # mdl.add_constraints(XX[i,j,n,n_] <= (X[i,n]+X[j,n_])/2\
+        #     for i in range_func \
+        #         for j in range_func \
+        #             for n in range_server \
+        #                 for n_ in range_server)
+        mdl.add_constraints(XX[i,j,n,n_] >= X[i,n]+X[j,n_]-1\
             for i in range_func \
                 for j in range_func \
                     for n in range_server \
@@ -219,17 +237,18 @@ class Propose(Scheduler):
                 for i in range_func \
                     for j in range_func)
     
-        # (30) 数据准备好时间
+        # (30) 数据准备好时间：所有前置任务完成，并将数据发送
         mdl.add_constraints(\
             T_data[i] >= T_end[j] + B[j,i] * self.get_weight(j,i) \
                 for j in range_func \
                     for i in range_func if self.G.has_edge(j,i))
 
-        # (31) 镜像块准备好的时间为所有层都准备好
-        mdl.add_constraints( T_image[i] >= self.servers[n].download_latency * mdl.sum(Q[n,i,l_,l] * layers[l_].size for l_ in range_layer )\
-                for n in range_server \
-                    for l in range_layer \
-                        for i in range_func if self.is_func_has_layer(i, l) == 1)
+        # (31) 镜像块准备好的时间：所有层都准备好
+        if image_related:
+            mdl.add_constraints( T_image[i] >= self.servers[n].download_latency * mdl.sum(Q[n,i,l_,l] * layers[l_].size for l_ in range_layer )\
+                    for n in range_server \
+                        for l in range_layer \
+                            for i in range_func if self.is_func_has_layer(i, l) == 1)
         
         # 目标
         mdl.minimize(TET)
