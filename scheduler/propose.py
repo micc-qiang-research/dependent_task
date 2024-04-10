@@ -21,33 +21,30 @@ class Propose(Scheduler):
 
     def solve_deploy_model(self):
         mdl = Model(name="propose_solver")
-        funcs = self.funcs
-        servers = self.servers
-        layers = self.layers
         
         range_func = range(self.N)
         range_server = range(self.K)
         range_layer = range(self.L)
         
-        self.max_core_number = max([s.core for s in servers])
+        self.max_core_number = max([s.core for s in self.servers])
         range_core = range(self.max_core_number)
 
         self.range_func,self.range_server,self.range_layer,self.range_core = range_func,range_server,range_layer,range_core
 
         ############### 1.关键决策变量 #############
         # h_i_n_k，函数i是否在机器n的核k上运行
-        mdl.h = mdl.continuous_var_cube(range_func, range_server, range_core, name=lambda fsc: "h_%d_%d_%d" % fsc)
+        mdl.h = mdl.continuous_var_cube(range_func, range_server, range_core, name=lambda fsc: "h_%d_%d_%d" % fsc, ub=1)
         
         # ############# 2.辅助决策变量 ###############
         # X_i_n 函数i是否部署到机器n
-        mdl.X = mdl.continuous_var_matrix(range_func, range_server, name=lambda fs: "X_%d_%d" % fs)
+        mdl.X = mdl.continuous_var_matrix(range_func, range_server, name=lambda fs: "X_%d_%d" % fs, ub=1)
 
         # XX_i_j_n_n' 函数i是否部署到 n，并且函数j是否部署到 n'
         XX_ = [(i,j,n,n_) for i in range_func for j in range_func for n in range_server for n_ in range_func]
         mdl.XX = mdl.continuous_var_dict(XX_, name=lambda ffnn: "XX_%d_%d_%d_%d" % ffnn, ub=1)
 
         # H_i_j 函数i和j是否部署到同一台机器的同一个核
-        mdl.H = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "H_%d_%d" % ff)
+        mdl.H = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "H_%d_%d" % ff, ub=1)
 
         # g_n_l 机器n是否下载镜像块l
         mdl.G = mdl.continuous_var_matrix(range_server, range_layer, name=lambda sl: "g_%d_%d" % sl, ub=1) # server n 下不下载 layer l
@@ -55,7 +52,7 @@ class Propose(Scheduler):
         '''
         y_i_j 函数i和函数j至少一个先执行        
         '''
-        mdl.Y = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "y_%d_%d" % ff)
+        mdl.Y = mdl.continuous_var_matrix(range_func, range_func, name=lambda ff: "y_%d_%d" % ff, ub=1)
 
 
         # 函数i和函数j之间的通信带宽
@@ -85,12 +82,6 @@ class Propose(Scheduler):
                     for n in range_server \
                         for n_ in range_server)
         
-        mdl.add_constraints(XX[i,j,n,n_] >= 0\
-            for i in range_func \
-                for j in range_func \
-                    for n in range_server \
-                        for n_ in range_server)
-        
         mdl.add_constraints(B[i,j] == mdl.sum( XX[i,j,n,n_]*self.server_comm[n][n_] for n_ in range_server for n in range_server) \
                 for i in range_func \
                     for j in range_func)
@@ -102,7 +93,7 @@ class Propose(Scheduler):
                     for i in range_func if self.G.has_edge(j,i))
         
 
-        # （16） 开始时间与数据传输及镜像准备好时间的关系
+        # （16） 开始时间与数据传输时间的关系
         mdl.add_constraints(T_start[i] >= T_data[i] for i in range_func)
 
         #（4）结束时间
@@ -127,11 +118,11 @@ class Propose(Scheduler):
         
         # 若某台机器没有那么多核，则强制h[i,n,c]=0
         for n in range_server:
-            if servers[n].core < self.max_core_number:
+            if self.servers[n].core < self.max_core_number:
                 mdl.add_constraints(h[i, n, k] == 0 \
                 for i in range_func \
                     for n in range_server \
-                        for k in range(servers[n].core, self.max_core_number))
+                        for k in range(self.servers[n].core, self.max_core_number))
         
         # (22) H[i,j]
         mdl.add_constraints(H[i,j] >= h[i,n,k] + h[j,n,k]-1\
@@ -155,6 +146,7 @@ class Propose(Scheduler):
                             for i in range_func \
                             for j in range_func if i!=j) 
         
+        # 目标是最小化总延迟
         mdl.minimize(mdl.sum([B[i,j] * self.get_weight(i,j) \
              for i in range_func for j in range_func if self.G.has_edge(i,j)]) + \
             mdl.sum([G[n,l] * self.layers[l].size * self.servers[n].download_latency for n in range_server for l in range_layer]))
@@ -168,9 +160,11 @@ class Propose(Scheduler):
     def parse(self, mdl, solution):
         if solution:
             
-            X = [[mdl.X[i,n].solution_value for n in self.range_server] for i in self.range_func]
+            X = np.array([[mdl.X[i,n].solution_value for n in self.range_server] for i in self.range_func])
 
             self.logger.debug(X)           
+            self.deploy = np.argmax(X, axis=1)
+            print(self.deploy)
 
             exit(0)
             # self.random_rounding(h,P,X)
