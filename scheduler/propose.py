@@ -5,6 +5,7 @@ import networkx as nx
 from .scheduler import Scheduler
 from .sdtsPlus import SDTSPlus
 from .executor import Executor
+import cvxpy as cp
 
 class Propose(SDTSPlus):
     def is_func_has_layer(self, func, layer):
@@ -278,9 +279,106 @@ class Propose(SDTSPlus):
                 pid+=1 # 切换到下一个Processor
             print(h, funcs_idx, self.get_func_layers(funcs_idx))
             layers_idx = self.get_func_layers(funcs_idx)
-            self.solve_sequence_problem(h, i, funcs_idx, layers_idx)
+            self.solve_sequence_problem_by_cvxpy(h, i, funcs_idx, layers_idx)
         exit(0)
-    
+
+    def solve_sequence_problem_by_cvxpy(self, h, n, funcs_idx, layers_idx):
+        mdl = Model(name="propose_solver")
+        range_func = range(len(funcs_idx))
+        range_layer = range(len(layers_idx))
+
+        ### 初始记映射关系
+        funcs_map = {} # func_id -> idx
+        for idx, fid in enumerate(funcs_idx):
+            funcs_map[fid] = idx
+        layers_map = {} # layer_id -> idx
+        for idx, lid in enumerate(layers_idx):
+            layers_map[lid] = idx
+
+        def get_func_id(idx): return funcs_idx[idx]
+        def get_layer_id(idx): return layers_idx[idx]
+
+        # p_l1_l2 机器n中镜像块l1和l2的下载序列关系
+        P = cp.Variable((len(layers_idx), len(layers_idx)))
+
+        T_start = cp.Variable(len(funcs_idx))
+        T_end = cp.Variable(len(funcs_idx))
+        T_image = cp.Variable(len(funcs_idx))
+        TET = cp.Variable()
+
+        constraints = [
+            P >= 0,
+            P <= 1,
+            T_start >= 0,
+            T_end >= 0,
+            T_image >= 0
+        ]
+
+        # (1) T_end
+        for i in range_func:
+            constraints.append(T_end[i] == T_start[i] + self.func_process[get_func_id(i)][n])
+
+        # (2) 任务之间的序列关系
+        for i in range_func:
+            for func_j in self.G.predecessors(get_func_id(i)):
+                if(func_j in funcs_map):
+                    constraints.append(T_start[i] >= T_end[funcs_map[func_j]])
+
+        # (3) 
+        for i in range_func:
+            constraints.append(T_start[i] >= T_image[i])
+
+        # (4)
+        for i in range_func:
+            constraints.append(TET >= T_end[i])
+
+        # (5) T_image[i] -> 函数I的image准备好时间
+        for i in range_func:
+            # 获取当前func所需的所有layer
+            for layer_l in self.funcs[get_func_id(i)].layer:
+                constraints.append(\
+                T_image[i] >= self.servers[n].download_latency \
+                    * cp.sum([P[l_,layers_map[layer_l]] \
+                            * self.layers[get_layer_id(l_)].size \
+                        for l_ in range_layer ]))
+        
+        # (6)
+        for i in range_func:
+            for j in range_func:
+                if(i!=j and h[get_func_id(i)] == h[get_func_id(j)]):
+                    constraints.append(\
+            cp.maximum(T_start[i]-T_end[j], T_start[j] - T_end[i]) >= 0)
+
+        for l1 in range_layer:
+            for l2 in range_layer:
+                if(l1 == l2):
+                    # (9)
+                    constraints.append(P[l1,l1] == 1)
+                else:
+                    # (7)
+                    constraints.append(P[l1,l2] + P[l2, l1] == 1)
+        
+        for l1 in range_layer:
+            for l2 in range_layer:
+                for l3 in range_layer:
+                    if(l1!=l2!=l3):
+                        # (8)
+                        constraints.append(P[l1,l2] + P[l2, l3] + P[l3, l1] <= 2)
+
+        goal = cp.Minimize(TET)
+
+        prob = cp.Problem(goal, constraints)
+
+        prob.solve()
+
+        print(prob.value)
+
+        # P = [[mdl.P[l1,l2].solution_value for l2 in range_layer] for l1 in range_layer]
+        # self.logger.debug(f"P[{n}] = ")
+        # self.logger.debug(np.array(P))
+        exit(0)
+
+
     '''
     @Params
         h: h[i] 表示函数i的部署的核
