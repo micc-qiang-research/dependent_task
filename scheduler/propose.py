@@ -18,8 +18,41 @@ class Propose(Scheduler):
         for i in func_ids:
             s = s.union(set(self.funcs[i].layer))
         return list(s)
+    
+    def iter_solve_deploy_model(self):
+        min_val = 0
+        max_val = 0
+        for process in self.func_process:
+            max_val += np.max(process)
+        # 获取所需镜像块的总和
+        total_layer_size = sum([self.layers[l].size for l in self.get_func_layers(range(self.N))])
+        
+        # 获取最大的拉取延迟
+        max_fetch_latency = max([server.download_latency for server in self.servers])
 
-    def solve_deploy_model(self):
+        # makespan不可能超过这个时间
+        max_val = max(max_val, total_layer_size*max_fetch_latency+np.max(self.func_process))
+
+        iter_cnt = 0
+        while(max_val - min_val > 1):
+            TET = (min_val + max_val) / 2
+            iter_cnt+=1
+            self.logger.debug(f"--- iter {iter_cnt}: TET = {TET}---")
+            __mdl, __solution = self.solve_deploy_model(TET)
+            if __solution:
+                max_val = TET # max_val保证了一定是可解的
+                mdl = __mdl # 保存结果
+                solution = __solution
+            else:
+                min_val = TET+1
+
+        self.parse(mdl, solution)
+        print("iter_cnt", iter_cnt)
+        print(max_val)
+        exit(0)
+
+
+    def solve_deploy_model(self, TET = 1000):
         mdl = Model(name="propose_solver")
         
         range_func = range(self.N)
@@ -64,7 +97,17 @@ class Propose(Scheduler):
 
         h,X,XX,B,H,T_data,T_start,T_end,G,Y = mdl.h,mdl.X,mdl.XX,mdl.B,mdl.H,mdl.T_data,mdl.T_start,mdl.T_end,mdl.G,mdl.Y
 
-        M = 1e11 # 一个足够大的数
+        mdl.comm_cost = mdl.continuous_var()
+        mdl.fetch_cost = mdl.continuous_var()
+
+        M = 1e9 # 一个足够大的数
+        M_time = np.sum(self.func_process) / self.K
+        fetch_weight = 0.5
+
+        # layer的总大小作为g_n_l
+        M_layer = [sum([1 for i in range_func if self.is_func_has_layer(i, l)]) for l in range_layer]
+
+        # print(M_time, M_layer)
 
         ########## 决策 end ###########################
 
@@ -107,9 +150,9 @@ class Propose(Scheduler):
                 for n in range_server 
                     for l in range_layer) 
         
-        mdl.add_constraints( G[n, l] >= mdl.sum(X[i,n]*self.is_func_has_layer(i, l) for i in range_func)/M \
+        mdl.add_constraints( G[n, l] >= mdl.sum(X[i,n]*self.is_func_has_layer(i, l) for i in range_func)/M_layer[l] \
                 for n in range_server 
-                    for l in range_layer)
+                    for l in range_layer if M_layer[l] != 0)
         
         # (21) 函数部署到机器的某个核上 
         mdl.add_constraints(mdl.sum(h[i, n, c] for c in range_core) == X[i, n] \
@@ -133,23 +176,29 @@ class Propose(Scheduler):
         
 
         # (23) 每个时间点运行的任务数量不超过机器核数
-        mdl.add_constraints(T_end[j] - T_start[i] <= (2-Y[j,i]-H[i,j])*M \
+        mdl.add_constraints(T_end[j] - T_start[i] <= (2-Y[j,i]-H[i,j])*M_time \
                             for i in range_func \
                             for j in range_func if i!=j)
         
-        mdl.add_constraints(T_end[i] - T_start[j] <= (2-Y[i,j]-H[i,j])*M \
+        mdl.add_constraints(T_end[i] - T_start[j] <= (2-Y[i,j]-H[i,j])*M_time \
                             for i in range_func \
                             for j in range_func if i!=j)
         
         # i在j前或j在i前至少有一个满足
-        mdl.add_constraints(Y[i,j] + Y[j,i] >= 1 \
+        mdl.add_constraints(Y[i,j] + Y[j,i] == 1 \
                             for i in range_func \
                             for j in range_func if i!=j) 
         
+        mdl.add_constraints(T_end[i] <= TET for i in range_func)
+
+
+        mdl.add_constraint(mdl.comm_cost == mdl.sum([B[i,j] * self.get_weight(i,j) \
+             for i in range_func for j in range_func if self.G.has_edge(i,j)]))
+        
+        mdl.add_constraint(mdl.fetch_cost == mdl.sum([G[n,l] * self.layers[l].size * self.servers[n].download_latency for n in range_server for l in range_layer]))
+
         # 目标是最小化总延迟
-        mdl.minimize(mdl.sum([B[i,j] * self.get_weight(i,j) \
-             for i in range_func for j in range_func if self.G.has_edge(i,j)]) + \
-            mdl.sum([G[n,l] * self.layers[l].size * self.servers[n].download_latency for n in range_server for l in range_layer]))
+        mdl.minimize((1-fetch_weight)*mdl.comm_cost + fetch_weight*mdl.fetch_cost)
 
         mdl.print_information()
 
@@ -159,14 +208,18 @@ class Propose(Scheduler):
 
     def parse(self, mdl, solution):
         if solution:
-            
+            # print(solution)
+            print("comm_cost", mdl.comm_cost.solution_value)
+            print("fetch_cost", mdl.fetch_cost.solution_value)
             X = np.array([[mdl.X[i,n].solution_value for n in self.range_server] for i in self.range_func])
 
-            self.logger.debug(X)           
+            G = np.array([[mdl.G[n,l].solution_value for l in self.range_layer] for n in self.range_server])
+
+            # self.logger.debug(X)
+            # self.logger.debug(G)
             self.deploy = np.argmax(X, axis=1)
             print(self.deploy)
 
-            exit(0)
             # self.random_rounding(h,P,X)
         else:
             self.logger.debug("求解失败")
@@ -180,6 +233,9 @@ class Propose(Scheduler):
         super().__init__(data, config)
 
     def schedule(self):
+        self.iter_solve_deploy_model()
+
+
         mdl, solution = self.solve_deploy_model()
         self.parse(mdl, solution)
         exit(0)
