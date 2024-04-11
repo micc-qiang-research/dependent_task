@@ -47,10 +47,8 @@ class Propose(Scheduler):
                 min_val = TET+1
 
         self.parse(mdl, solution)
-        print("iter_cnt", iter_cnt)
-        print(max_val)
-        exit(0)
-
+        self.logger.debug("iter_cnt", iter_cnt)
+        self.logger.debug(max_val)
 
     def solve_deploy_model(self, TET = 1000):
         mdl = Model(name="propose_solver")
@@ -102,7 +100,7 @@ class Propose(Scheduler):
 
         M = 1e9 # 一个足够大的数
         M_time = np.sum(self.func_process) / self.K
-        fetch_weight = 0.5
+        fetch_weight = 0.9
 
         # layer的总大小作为g_n_l
         M_layer = [sum([1 for i in range_func if self.is_func_has_layer(i, l)]) for l in range_layer]
@@ -200,7 +198,7 @@ class Propose(Scheduler):
         # 目标是最小化总延迟
         mdl.minimize((1-fetch_weight)*mdl.comm_cost + fetch_weight*mdl.fetch_cost)
 
-        mdl.print_information()
+        # mdl.print_information()
 
         solution = mdl.solve()
 
@@ -227,18 +225,28 @@ class Propose(Scheduler):
     
 
     def output_scheduler_strategy(self):
-        pass
+        replica = False
+        place = [[] for i in range(self.cluster.get_total_core_number())]
+        download_sequence = None
+        core_index = [0 for i in range(self.K)] # 计算当前正在使用server的core index
+
+        for func,server in enumerate(self.deploy):
+            place[core_index[server]+self.cluster.get_start_core_number(server)].append(func)
+            core_index[server] += 1
+            core_index[server] %= self.cluster.get_core_number(server)
+        # place = [[0,1],[3],[1,2],[2]]
+        return replica, place, download_sequence, Executor.TOPOLOGY
 
     def __init__(self, data, config):
         super().__init__(data, config)
 
     def schedule(self):
+        # 生成self.deploy
         self.iter_solve_deploy_model()
+        return self.output_scheduler_strategy()
 
-
-        mdl, solution = self.solve_deploy_model()
-        self.parse(mdl, solution)
-        exit(0)
+        # mdl, solution = self.solve_deploy_model()
+        # self.parse(mdl, solution)
         # mdl, solution = self.solve()
         # self.parse(mdl, solution)
-        # return self.output_scheduler_strategy()
+        
