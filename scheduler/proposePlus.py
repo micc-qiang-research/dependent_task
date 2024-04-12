@@ -7,7 +7,7 @@ from .executor import Executor
 from heft import heft
 import math
 
-class Propose(Scheduler):
+class ProposePlus(Scheduler):
     def is_func_has_layer(self, func, layer):
         if layer in self.funcs[func].layer:
             return 1
@@ -346,8 +346,8 @@ class Propose(Scheduler):
     def schedule(self):
         # 生成self.deploy
         self.iter_solve_deploy_model()
-        # self.layer_sequence = self.parse_deploy(self.deploy)
-        self.layer_sequence = None
+        self.layer_sequence = self.parse_deploy(self.deploy)
+        # self.layer_sequence = None
         return self.output_scheduler_strategy()
 
         # mdl, solution = self.solve_deploy_model()
