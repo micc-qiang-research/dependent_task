@@ -3,15 +3,15 @@ from types import SimpleNamespace
 run_config = SimpleNamespace(**{
     # report
     # "scheduler_show": ["SDTS","GenDoc", "HEFT","Optim"],
-    # "scheduler_show": ["SDTS","GenDoc", "HEFT","LCAAP", "SDTSPlus","Propose"],
-    "scheduler_show": ["Propose", "ProposePlus"],
+    "scheduler_show": ["SDTS","GenDoc", "HEFT","LCAAP", "SDTSPlus","Propose"],
+    # "scheduler_show": ["Propose", "ProposePlus"],
 
     # run_all
     # "scheduler_run": ["SDTS","GenDoc", "HEFT", "Optim"],
-    # "scheduler_run": ["SDTS","GenDoc", "HEFT","LCAAP", "SDTSPlus","Propose"],
+    "scheduler_run": ["SDTS","GenDoc", "HEFT","LCAAP", "SDTSPlus","Propose"],
     # "scheduler_run": ["SDTSPlus"],
     # "scheduler_run": ["SDTS","GenDoc", "HEFT", "LCAAP"],
-    "scheduler_run": ["Propose","ProposePlus"],
+    # "scheduler_run": ["Propose","ProposePlus"],
     
     # generate_dataset
     "K": 5,

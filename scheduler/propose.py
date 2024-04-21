@@ -31,7 +31,8 @@ class Propose(Scheduler):
         max_fetch_latency = max([server.download_latency for server in self.servers])
 
         # makespan不可能超过这个时间
-        max_val = max(max_val, total_layer_size*max_fetch_latency+np.max(self.func_process))
+        #max_val = max(max_val, total_layer_size*max_fetch_latency+np.max(self.func_process))
+        max_val += total_layer_size * max_fetch_latency
 
         iter_cnt = 0
         while(max_val - min_val > 1):
