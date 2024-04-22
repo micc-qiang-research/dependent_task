@@ -6,6 +6,7 @@ from .scheduler import Scheduler
 import math
 from cluster import Core
 from .executor import Executor
+from .sequencing import GenStrategy
 
 class SDTS(Scheduler):
     def __init__(self, data, config):
@@ -203,7 +204,7 @@ class SDTS(Scheduler):
         self.logger.debug(f"place: {place}")
         self.logger.debug(f"download_sequence: {download_sequence}")
         
-        return replica, place, download_sequence, Executor.CUSTOM, self.sorted_nodes
+        return replica, place, download_sequence, GenStrategy.CUSTOM, self.sorted_nodes
             
     def schedule(self):
         G = self.G

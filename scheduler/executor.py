@@ -6,20 +6,6 @@ import networkx as nx
 import logging
 
 class Executor:
-    DUMB = 0
-    TOPOLOGY = 1
-    CUSTOM = 2
-    def get_gen_strategy(self, strategy):
-        match(strategy):
-            case Executor.DUMB:
-                return self.dumb_gen_strategy
-            case Executor.TOPOLOGY:
-                return self.topology_gen_strategy
-            case Executor.CUSTOM:
-                return self.custom_gen_strategy
-            case _:
-                assert False, "gen_strategy error"
-
 
     def __init__(self, data, config):
         self.data = data
@@ -103,80 +89,6 @@ class Executor:
     def get_makespan(self):
         return round(self.gs(self.sink).get_deploy_info("edge")["t_execute_end"],2)
     
-    '''
-    将调度算法策略转换为本项目策略
-    通用的算法策略用一个二维数组表示
-    strategy[K] = [
-          [0,1,5],
-          [2,4,3],
-           ...
-    ]
-    其中strategy[k][i]表示第i个core的第j个任务
-    core的编号顺序为: 
-        server0.core0  server0.core1 ...
-        server1.core0  server1.core1 ...
-        ...
-        cloud
-    返回:
-        (func, procs)元组， procs是一个list,因为一个函数可部署到多个位置
-    '''
-
-    # 按核顺序来返回函数
-    # 对于SDTS，可能前置任务没全部做完后置任务就开始了
-    def dumb_gen_strategy(self, raw_strategy, order=None):
-        assert len(raw_strategy) >= self.cluster.get_total_core_number(), "strategy length don't match core number"
-        finished_func = set()
-        all_func = set(self.G.nodes())
-        pos = [0 for i in range(len(raw_strategy))]
-        def is_exist(func_id):
-            for i,s in enumerate(raw_strategy):
-                if pos[i] >= len(s):
-                    continue
-                if func_id in s[pos[i]:]:
-                    return True
-            return False
-        
-        while True:
-            # 所有节点都遍历过
-            if len(all_func ^ finished_func) == 0: break
-            for i,s in enumerate(raw_strategy):
-                if pos[i] >= len(s):
-                    continue
-                j = pos[i]
-                if set(self.G.predecessors(s[j])).issubset(finished_func):
-                    pos[i] = j + 1
-                    # if not is_exist(s[j]): # 只有在列表中不存在了，才添加？ 可能会死锁！
-                    finished_func.add(s[j])
-                    yield s[j],[i]
-    
-    # 按拓扑排序返回函数
-    def topology_gen_strategy(self, raw_strategy, order=None):
-        def find_pos(func):
-            res = []
-            for i,s in enumerate(raw_strategy):
-                if func in s:
-                    res.append(i)
-                if func == self.source or func == self.sink:
-                    return [-1]
-            return res
-        func = list(nx.topological_sort(self.G))
-        for f in func:
-            yield f,find_pos(f)
-
-    # 用户自定义策略
-    def custom_gen_strategy(self, raw_strategy, order=None):
-        assert order != None, "custom generation policies must specify order"
-        def find_pos(func):
-            res = []
-            for i,s in enumerate(raw_strategy):
-                if func in s:
-                    res.append(i)
-                if func == self.source or func == self.sink:
-                    return [-1]
-            return res
-        for f in order:
-            yield f,find_pos(f)
-
 
     '''
     下面是server操作layer的函数

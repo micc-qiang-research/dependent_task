@@ -7,3 +7,4 @@ from .lcaap import *
 from .sdtsPlus import *
 from .propose import *
 from .proposePlus import *
+from .sequencing import *

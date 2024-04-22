@@ -3,16 +3,23 @@ import numpy as np
 import math
 from util import *
 from scheduler.executor import Executor
+from scheduler.sequencing import GenStrategy,Sequencing
 from strategy import Strategy
 
+seq_strategy = Sequencing.LOPO
+
 class Analysis(Executor):
-    def __init__(self, data, replica, place, download_sequence, gen_strategy = Executor.DUMB, order = None, config = None):
+    def __init__(self, data, replica, place, download_sequence, gen_strategy = GenStrategy.DUMB, order = None, config = None):
         super().__init__(data, config)
         self.data = data
         self.replica = replica
         self.place = place
-        self.download_sequence = download_sequence
-        self.gen_strategy = self.get_gen_strategy(gen_strategy)
+
+        self.download_sequence = Sequencing(seq_strategy, gen_strategy, place, order, self).get_download_sequence()
+        # self.download_sequence = None
+
+
+        self.gen_strategy = GenStrategy(self).get_gen_strategy(gen_strategy)
         self.config = config
         self.order = order
 

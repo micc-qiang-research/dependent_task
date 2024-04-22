@@ -4,6 +4,7 @@ import numpy as np
 import networkx as nx
 from util import *
 from .executor import Executor
+from .sequencing import GenStrategy
 
 '''
 将HEFT算法用在本场景：
@@ -98,7 +99,7 @@ class HEFT(Scheduler):
                 proc = scheduler.proc
                 place[proc].append(task)
 
-        return replica, place, download_sequence, Executor.CUSTOM, self.sorted_nodes
+        return replica, place, download_sequence, GenStrategy.CUSTOM, self.sorted_nodes
 
 
     def change_comm2band(self):

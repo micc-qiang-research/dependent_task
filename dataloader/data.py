@@ -5,7 +5,7 @@ import json
 from typing import NamedTuple
 
 Server = NamedTuple("Server", [("core", int), ("storage", float), ("download_latency", float)])
-Func = NamedTuple("Func", [("layer", set)])
+Func = NamedTuple("Func", [("layer", list)])
 Layer = NamedTuple("Layer", [("size", float)])
 
 class Data(metaclass=ABCMeta):
