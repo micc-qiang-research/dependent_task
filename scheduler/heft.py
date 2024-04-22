@@ -91,7 +91,6 @@ class HEFT(Scheduler):
         sched = self.sched
         replica = False
         place = [[] for i in range(self.proc_number)]
-        download_sequence = None
         
         for server in sched:
             for scheduler in sched[server]:
@@ -99,7 +98,7 @@ class HEFT(Scheduler):
                 proc = scheduler.proc
                 place[proc].append(task)
 
-        return replica, place, download_sequence, GenStrategy.CUSTOM, self.sorted_nodes
+        return replica, place, GenStrategy.CUSTOM, self.sorted_nodes
 
 
     def change_comm2band(self):

@@ -6,6 +6,7 @@ from .scheduler import Scheduler
 import math
 from cluster import Core
 from .executor import Executor
+from .sequencing import GenStrategy
 
 class LCAAP(Scheduler):
     def __init__(self, data, config):
@@ -21,7 +22,7 @@ class LCAAP(Scheduler):
     def output_scheduler_strategy(self):
         replica = False
         place = [[] for i in range(self.cluster.get_total_core_number())]
-        download_sequence = self.download_sequence
+        # download_sequence = self.download_sequence
         core_index = [0 for i in range(self.K)] # 计算当前正在使用server的core index
 
         for func,server in self.sched.items():
@@ -29,7 +30,7 @@ class LCAAP(Scheduler):
             core_index[server] += 1
             core_index[server] %= self.cluster.get_core_number(server)
 
-        return replica, place, download_sequence, Executor.TOPOLOGY
+        return replica, place, GenStrategy.TOPOLOGY
 
     # 放置算法
     # 返回 {container_object_id: server_id, ...}

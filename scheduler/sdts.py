@@ -150,7 +150,6 @@ class SDTS(Scheduler):
         total_core_number = self.cluster.get_total_core_number()
         replica = True # 该策略允许复制
         place = [[] for i in range(total_core_number)]
-        download_sequence = None
 
         # 获取每个核的调度信息
         sched_info = [[] for i in range(total_core_number)]
@@ -202,9 +201,8 @@ class SDTS(Scheduler):
 
         self.logger.debug(f"replica? {replica}")
         self.logger.debug(f"place: {place}")
-        self.logger.debug(f"download_sequence: {download_sequence}")
         
-        return replica, place, download_sequence, GenStrategy.CUSTOM, self.sorted_nodes
+        return replica, place, GenStrategy.CUSTOM, self.sorted_nodes
             
     def schedule(self):
         G = self.G

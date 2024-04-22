@@ -6,7 +6,7 @@ from .scheduler import Scheduler
 import math
 from cluster import Core
 from .executor import Executor
-
+from .sequencing import GenStrategy
 
 '''
 SDTS的加强版
@@ -91,7 +91,6 @@ class SDTSPlus(Scheduler):
         total_core_number = self.cluster.get_total_core_number()
         replica = False # 该策略允许复制
         place = [[] for i in range(total_core_number)]
-        download_sequence = None
 
         # 获取每个核的调度信息
         sched_info = [[] for i in range(total_core_number)]
@@ -113,9 +112,8 @@ class SDTSPlus(Scheduler):
 
         self.logger.debug(f"replica? {replica}")
         self.logger.debug(f"place: {place}")
-        self.logger.debug(f"download_sequence: {download_sequence}")
         
-        return replica, place, download_sequence, Executor.CUSTOM, self.sorted_nodes
+        return replica, place, GenStrategy.CUSTOM, self.sorted_nodes
             
     def schedule(self):
         G = self.G

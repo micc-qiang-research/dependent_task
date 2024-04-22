@@ -14,6 +14,7 @@ import sys
 import concurrent.futures
 from tqdm import tqdm
 from generate_dataset import traverse_and_build
+from types import SimpleNamespace
 
 # 获取生成的所有数据集，然后执行一次实验
 class RunExperiment:
@@ -44,16 +45,35 @@ class RunExperiment:
         param = RunExperiment.run_once(filename)
         return param
 
+    def get_scheduler():
+        res = []
+        if run_config.sequence:
+            sequence_strategy = run_config.sequence_strategy
+            sequence_scheduler = run_config.sequence_scheduler
+            for sched in sequence_scheduler:
+                for seq in sequence_strategy:
+                    res.append((f"{sched}-{seq}", sched, seq))
+        else:
+            scheduler = run_config.scheduler_run
+            for sched in scheduler:
+                res.append((f"makespan_{sched}", sched, None))
+        return res
+
     def run_once(filename):
         
         # val = filename.split('/')[2].split('.json')[0].split('_')
         param = dict(zip(RunExperiment.keys, RunExperiment.dataset_params))
         try:
             data = DataByJson(filename) # read Data
-            scheduler = run_config.scheduler_run
-            for s in scheduler:
-                sched = eval(s)
-                param['makespan_'+s] = Analysis(data, *sched(data, None).schedule()).summarize()
+            # scheduler = run_config.scheduler_run
+            scheduler = RunExperiment.get_scheduler()
+            for name,sch,seq in scheduler:
+                sched = eval(sch)
+                config = None
+                if seq:
+                    config = SimpleNamespace()
+                    config.sequence = seq
+                param[name] = Analysis(data, *sched(data, config).schedule(), config=config).summarize()
             
             # 每一条数据是一个dict，含有如下字段：['n', 'fat', 'density', 'regularity', 'jump', 'makespan_xx']
         except:

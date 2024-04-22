@@ -6,16 +6,20 @@ from scheduler.executor import Executor
 from scheduler.sequencing import GenStrategy,Sequencing
 from strategy import Strategy
 
-seq_strategy = Sequencing.FCFS
+# seq_strategy = Sequencing.FCFS
 
 class Analysis(Executor):
-    def __init__(self, data, replica, place, download_sequence, gen_strategy = GenStrategy.DUMB, order = None, config = None):
+    def __init__(self, data, replica, place, gen_strategy = GenStrategy.DUMB, order = None, config = None):
         super().__init__(data, config)
         self.data = data
         self.replica = replica
         self.place = place
 
-        self.download_sequence = Sequencing(seq_strategy, gen_strategy, place, order, self).get_download_sequence()
+        if not config:
+            seq_strategy = "FCFS"
+        else:
+            seq_strategy = config.sequence
+        self.download_sequence = Sequencing(Sequencing.seq_str[seq_strategy], gen_strategy, place, order, self).get_download_sequence()
         # self.download_sequence = None
 
 
@@ -130,6 +134,6 @@ class Analysis(Executor):
     def summarize(self):
         self.makespan = self.get_makespan()
         print(self.makespan)
-        if self.config and self.config.gantta:
+        if self.config and hasattr(self, "gantta") and self.config.gantta:
             self.showGantt(self.config.scheduler)
         return self.makespan

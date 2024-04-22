@@ -25,7 +25,7 @@ class Executor:
         # handler1.setLevel(logging.DEBUG)
         # formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
         # handler1.setFormatter(formatter)
-        if self.config:
+        if self.config and hasattr(self.config, "log_level"):
             handler1.setLevel(self.config.log_level)
         self.logger.addHandler(handler1)
 

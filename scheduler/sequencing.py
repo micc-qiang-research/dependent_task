@@ -263,7 +263,9 @@ class Sequencing:
     LOPO = 3
     CNTR = 4
     DALP = 5 # depentent aware layer pull
-    
+
+    seq_str = {"FCFS":FCFS, "GLSA":GLSA, "LOPO":LOPO, "CNTR":CNTR, "DALP": DALP}
+
     def __init__(self, seq, gen, raw_strategy, order, executor):
         self.seq = seq
         self.gen = gen
@@ -286,6 +288,9 @@ class Sequencing:
                 return DALPSequencing
             case _:
                 assert False, "gen_strategy error"
+
+    # def get_sequencing_from_str(self, seq_str):
+    #     return self.get_sequencing_strategy(Sequencing.seq_str[seq_str])
 
     def get_download_sequence(self):
         sequencing = []

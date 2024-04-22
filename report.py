@@ -98,7 +98,21 @@ get_filename = [
     ExtractFileHelper.get_filename_by_dcr
 ]
 
-scheduler = run_config.scheduler_show
+def get_scheduler():
+    res = []
+    if run_config.sequence:
+        sequence_strategy = run_config.sequence_strategy
+        sequence_scheduler = run_config.sequence_scheduler
+        for sched in sequence_scheduler:
+            for seq in sequence_strategy:
+                res.append(f"{sched}-{seq}")
+    else:
+        scheduler = run_config.scheduler_run
+        for sched in scheduler:
+            res.append(f"makespan_{sched}")
+    return res
+
+scheduler = get_scheduler()
 
 '''
     返回格式：一个字典 + ccr取值
@@ -121,7 +135,7 @@ def get_makespan(ltype):
         with open(file, 'rb') as handle:
             data = pickle.load(handle)
             for s in scheduler:
-                column = "makespan_"+s
+                column = s
                 makespans[s].append(data[column].mean().round(2))
                 # makespans[s].append(data[column].median().round(2))
     return makespans, vals
@@ -162,7 +176,7 @@ def get_makespan_total():
             data = pickle.load(handle)
             # scheduler = ["SDTS","GenDoc", "HEFT", "Optim"]
             for i,s in enumerate(scheduler):
-                makespan[i].extend(list(data["makespan_"+s]))
+                makespan[i].extend(list(data[s]))
     return makespan
 
 def prepare_pairwise_data(makespan):

@@ -1,17 +1,27 @@
 from types import SimpleNamespace
 
 run_config = SimpleNamespace(**{
+
+    # sequence相关
+
+    "sequence": True,
+
+    ############ sequence true start #############    
+    "sequence_strategy": ["FCFS", "LOPO", "CNTR", "GLSA", "DALP"],
+    "sequence_scheduler": ["SDTS"],
+    ########### sequence true end ############
+
+    ############ sequence false start ##########
     # report
-    # "scheduler_show": ["SDTS","GenDoc", "HEFT","Optim"],
-    "scheduler_show": ["SDTS","GenDoc", "HEFT","LCAAP", "SDTSPlus","Propose"],
-    # "scheduler_show": ["Propose", "ProposePlus"],
+    "scheduler_show": ["SDTS","GenDoc", "HEFT","LCAAP", "SDTSPlus"],
+    # "scheduler_show": ["SDTS","GenDoc", "HEFT","LCAAP", "SDTSPlus","Propose"],
 
     # run_all
-    # "scheduler_run": ["SDTS","GenDoc", "HEFT", "Optim"],
-    "scheduler_run": ["SDTS","GenDoc", "HEFT","LCAAP", "SDTSPlus","Propose"],
-    # "scheduler_run": ["SDTSPlus"],
-    # "scheduler_run": ["SDTS","GenDoc", "HEFT", "LCAAP"],
-    # "scheduler_run": ["Propose","ProposePlus"],
+    # "scheduler_run": ["SDTS","GenDoc", "HEFT","LCAAP", "SDTSPlus","Propose"],
+    "scheduler_run": ["SDTS","GenDoc", "HEFT","LCAAP", "SDTSPlus"],
+
+    ############ sequence flase end ###############
+    
     
     # generate_dataset
     "K": 5,

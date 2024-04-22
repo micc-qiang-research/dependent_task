@@ -3,6 +3,7 @@ from .scheduler import Scheduler
 import math
 import numpy as np
 from .executor import Executor
+from .sequencing import GenStrategy
 
 '''
 方法：
@@ -191,7 +192,6 @@ class GenDoc(Scheduler):
     def output_scheduler_strategy(self):
         replica = True
         place = [[] for i in range(self.cluster.get_total_core_number())]
-        download_sequence = None
         core_index = [0 for i in range(self.K)] # 计算当前正在使用server的core index
 
         for func,server in self.sched:
@@ -199,7 +199,7 @@ class GenDoc(Scheduler):
             core_index[server] += 1
             core_index[server] %= self.cluster.get_core_number(server)
         # place = [[0,1],[3],[1,2],[2]]
-        return replica, place, download_sequence, Executor.TOPOLOGY
+        return replica, place, GenStrategy.TOPOLOGY
 
     def schedule(self):
         # self.fixdoc()
