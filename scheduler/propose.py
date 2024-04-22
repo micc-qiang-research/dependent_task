@@ -4,10 +4,11 @@ from docplex.mp.model import Model
 import networkx as nx
 from .scheduler import Scheduler
 from .executor import Executor
+from .sdtsPlus import SDTSPlus
 from heft import heft
 import math
 
-class Propose(Scheduler):
+class Propose(SDTSPlus):
     def is_func_has_layer(self, func, layer):
         if layer in self.funcs[func].layer:
             return 1
@@ -148,14 +149,18 @@ class Propose(Scheduler):
                     for i in range_func)
 
         # 以下两条约束保证，server含有函数所需的镜像块且相同的镜像块至多含有一个
-        mdl.add_constraints( G[n, l] <= mdl.sum(X[i,n]*self.is_func_has_layer(i, l)\
-            for i in range_func) \
+        # mdl.add_constraints( G[n, l] <= mdl.sum(X[i,n]*self.is_func_has_layer(i, l)\
+        #     for i in range_func) \
+        #         for n in range_server 
+        #             for l in range_layer) 
+        
+        # mdl.add_constraints( G[n, l] >= mdl.sum(X[i,n]*self.is_func_has_layer(i, l) for i in range_func)/M_layer[l] \
+        #         for n in range_server 
+        #             for l in range_layer if M_layer[l] != 0)
+        mdl.add_constraints( G[n, l] >= X[i,n]*self.is_func_has_layer(i, l)\
+            for i in range_func \
                 for n in range_server 
                     for l in range_layer) 
-        
-        mdl.add_constraints( G[n, l] >= mdl.sum(X[i,n]*self.is_func_has_layer(i, l) for i in range_func)/M_layer[l] \
-                for n in range_server 
-                    for l in range_layer if M_layer[l] != 0)
         
         # (21) 函数部署到机器的某个核上 
         mdl.add_constraints(mdl.sum(h[i, n, c] for c in range_core) == X[i, n] \
@@ -171,26 +176,26 @@ class Propose(Scheduler):
                         for k in range(self.servers[n].core, self.max_core_number))
         
         # (22) H[i,j]
-        mdl.add_constraints(H[i,j] >= h[i,n,k] + h[j,n,k]-1\
-                        for i in range_func \
-                            for j in range_func \
-                                for n in range_server \
-                                    for k in range_core)
+        # mdl.add_constraints(H[i,j] >= h[i,n,k] + h[j,n,k]-1\
+        #                 for i in range_func \
+        #                     for j in range_func \
+        #                         for n in range_server \
+        #                             for k in range_core)
         
 
         # (23) 每个时间点运行的任务数量不超过机器核数
-        mdl.add_constraints(T_end[j] - T_start[i] <= (2-Y[j,i]-H[i,j])*M_time \
-                            for i in range_func \
-                            for j in range_func if i!=j)
+        # mdl.add_constraints(T_end[j] - T_start[i] <= (2-Y[j,i]-H[i,j])*M_time \
+        #                     for i in range_func \
+        #                     for j in range_func if i!=j)
         
-        mdl.add_constraints(T_end[i] - T_start[j] <= (2-Y[i,j]-H[i,j])*M_time \
-                            for i in range_func \
-                            for j in range_func if i!=j)
+        # mdl.add_constraints(T_end[i] - T_start[j] <= (2-Y[i,j]-H[i,j])*M_time \
+        #                     for i in range_func \
+        #                     for j in range_func if i!=j)
         
-        # i在j前或j在i前至少有一个满足
-        mdl.add_constraints(Y[i,j] + Y[j,i] == 1 \
-                            for i in range_func \
-                            for j in range_func if i!=j) 
+        # # i在j前或j在i前至少有一个满足
+        # mdl.add_constraints(Y[i,j] + Y[j,i] == 1 \
+        #                     for i in range_func \
+        #                     for j in range_func if i!=j) 
         
         mdl.add_constraints([T_end[i] <= TET for i in range_func], names=[f"TET{i}" for i in range_func])
 
@@ -212,6 +217,12 @@ class Propose(Scheduler):
         solution = mdl.solve()
         return mdl, solution
 
+    # 重写优先级方法，开始时间越小，优先级越高
+    def priority(self, func_edge_download, server_comm, func_process):
+        print(self.T_start)
+        priority_dict = {k:-v for k,v in enumerate(self.T_start)}
+        return priority_dict
+
     def parse(self, mdl, solution):
         if solution:
             # print(solution)
@@ -221,28 +232,32 @@ class Propose(Scheduler):
 
             G = np.array([[mdl.G[n,l].solution_value for l in self.range_layer] for n in self.range_server])
 
+            T_start = np.array([mdl.T_start[i].solution_value for i in self.range_func])
+
             # self.logger.debug(X)
             # self.logger.debug(G)
             self.deploy = np.argmax(X, axis=1)
             print(self.deploy)
+
+            self.T_start = T_start
 
             # self.random_rounding(h,P,X)
         else:
             self.logger.debug("求解失败")
             exit(1)
 
-    def output_scheduler_strategy(self):
-        replica = False
-        place = [[] for i in range(self.cluster.get_total_core_number())]
-        download_sequence = self.layer_sequence
-        core_index = [0 for i in range(self.K)] # 计算当前正在使用server的core index
+    # def output_scheduler_strategy(self):
+    #     replica = False
+    #     place = [[] for i in range(self.cluster.get_total_core_number())]
+    #     download_sequence = self.layer_sequence
+    #     core_index = [0 for i in range(self.K)] # 计算当前正在使用server的core index
 
-        for func,server in enumerate(self.deploy):
-            place[core_index[server]+self.cluster.get_start_core_number(server)].append(func)
-            core_index[server] += 1
-            core_index[server] %= self.cluster.get_core_number(server)
-        # place = [[0,1],[3],[1,2],[2]]
-        return replica, place, download_sequence, Executor.TOPOLOGY
+    #     for func,server in enumerate(self.deploy):
+    #         place[core_index[server]+self.cluster.get_start_core_number(server)].append(func)
+    #         core_index[server] += 1
+    #         core_index[server] %= self.cluster.get_core_number(server)
+    #     # place = [[0,1],[3],[1,2],[2]]
+    #     return replica, place, download_sequence, Executor.TOPOLOGY
 
     def __init__(self, data, config):
         super().__init__(data, config)
@@ -251,6 +266,8 @@ class Propose(Scheduler):
         # 生成self.deploy
         self.iter_solve_deploy_model()
         self.layer_sequence = None
-        return self.output_scheduler_strategy()
+        # self.priority(self.func_edge_download, self.server_comm, self.func_process)
+        return super().schedule()
+        # return self.output_scheduler_strategy()
 
         
