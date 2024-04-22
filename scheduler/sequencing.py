@@ -2,6 +2,7 @@
 import networkx as nx
 import numpy as np
 from abc import abstractmethod, ABCMeta
+from sequence.Lcaa import Lcaa
 
 class GenStrategy:
     DUMB = 0
@@ -144,6 +145,16 @@ class SequencingStrategy(metaclass=ABCMeta):
                     tmp = set(self.funcs[func_id].layer) # 当前的集合
                     layer_set = layer_set | tmp
         return list(layer_set)
+    
+    def get_need_funcs(self, server_id):
+        st = self.executor.cluster.get_start_core_number(server_id)
+        size = self.executor.cluster.get_core_number(server_id)
+        func_set = set()
+        for func_id, core_ids in self.gen_strategy(self.raw_strategy, self.order):
+            for core_id in core_ids:
+                if core_id >= st and core_id < st+size:
+                    func_set.add(func_id)
+        return list(func_set)
             
     
 # 根据部署的顺序下载镜像  
@@ -163,6 +174,7 @@ class FCFSSequencing(SequencingStrategy):
                     tmp = set(self.funcs[func_id].layer) # 当前的集合
                     layer_download_seq.extend(tmp-layer_set) # 增量添加
                     layer_set = layer_set | tmp
+        print(layer_download_seq)
         return layer_download_seq
 
 
@@ -172,7 +184,10 @@ class GLSASequencing(SequencingStrategy):
         super().__init__(seq, raw_strategy, order, executor)
 
     def get_sequencing(self, server_id):
-        pass
+        func_ids = self.get_need_funcs(server_id)
+        download_sequence = Lcaa(self.executor, server_id).deploy_container_by_glsa(func_ids)
+        print(download_sequence)
+        return download_sequence
 
 # 对"权重"最大镜像块先下载
 class LOPOSequencing(SequencingStrategy):

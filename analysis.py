@@ -6,7 +6,7 @@ from scheduler.executor import Executor
 from scheduler.sequencing import GenStrategy,Sequencing
 from strategy import Strategy
 
-seq_strategy = Sequencing.LOPO
+seq_strategy = Sequencing.FCFS
 
 class Analysis(Executor):
     def __init__(self, data, replica, place, download_sequence, gen_strategy = GenStrategy.DUMB, order = None, config = None):
