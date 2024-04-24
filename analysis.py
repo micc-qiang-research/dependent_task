@@ -134,6 +134,6 @@ class Analysis(Executor):
     def summarize(self):
         self.makespan = self.get_makespan()
         print(self.makespan)
-        if self.config and hasattr(self, "gantta") and self.config.gantta:
+        if self.config and hasattr(self.config, "gantta") and self.config.gantta:
             self.showGantt(self.config.scheduler)
         return self.makespan

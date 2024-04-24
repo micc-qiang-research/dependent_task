@@ -155,6 +155,15 @@ class SequencingStrategy(metaclass=ABCMeta):
                 if core_id >= st and core_id < st+size:
                     func_set.add(func_id)
         return list(func_set)
+    
+    def get_layers_size(self, func_ids):
+        layer_set = set()
+        for func_id in func_ids:
+            layer_set = layer_set | set(self.funcs[func_id].layer)
+        res = 0
+        for layer in layer_set:
+            res += self.layers[layer].size
+        return res
             
     
 # 根据部署的顺序下载镜像  
@@ -174,7 +183,7 @@ class FCFSSequencing(SequencingStrategy):
                     tmp = set(self.funcs[func_id].layer) # 当前的集合
                     layer_download_seq.extend(tmp-layer_set) # 增量添加
                     layer_set = layer_set | tmp
-        print(layer_download_seq)
+        # print(layer_download_seq)
         return layer_download_seq
 
 
@@ -232,7 +241,25 @@ class DALPSequencing(SequencingStrategy):
     def __init__(self, seq, raw_strategy, order, executor):
         super().__init__(seq, raw_strategy, order, executor)
 
+    def get_cost(self, x):
+        # return 0
+        # 需要下载的镜像大小 + 需要往外面传送数据的大小
+        total_layer_size = self.get_layers_size(x)
+        total_trans_size = 0
+        for func_id in x:
+            for sfid in list(self.G.successors(func_id)):
+                if sfid not in self.need_funcs:
+                    total_trans_size += self.executor.get_weight(func_id, sfid)
+
+        alpha = 0
+        layer_time = total_layer_size * self.servers[self.server_id].download_latency
+        trans_time = total_trans_size * np.mean(self.executor.server_comm[self.server_id][self.executor.server_comm[self.server_id]!=0])
+        score =  alpha*layer_time + (1-alpha)*trans_time
+        return score
+
     def get_sequencing(self, server_id):
+        self.server_id = server_id
+        self.need_funcs = self.get_need_funcs(server_id)
         core_task = self.get_core_execution_sequence(server_id)
         # print(core_task)
         assert len(core_task) == self.executor.servers[server_id].core
@@ -240,7 +267,7 @@ class DALPSequencing(SequencingStrategy):
         
         func_ids = []
         while core_task:
-            max_array = max(core_task, key=lambda x: sum(x))
+            max_array = max(core_task, key=self.get_cost)
             func_ids.append(max_array[0])
             max_array.pop(0)
             if not max_array:
