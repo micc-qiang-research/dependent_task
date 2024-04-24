@@ -149,12 +149,12 @@ class SequencingStrategy(metaclass=ABCMeta):
     def get_need_funcs(self, server_id):
         st = self.executor.cluster.get_start_core_number(server_id)
         size = self.executor.cluster.get_core_number(server_id)
-        func_set = set()
+        func_ids = []
         for func_id, core_ids in self.gen_strategy(self.raw_strategy, self.order):
             for core_id in core_ids:
                 if core_id >= st and core_id < st+size:
-                    func_set.add(func_id)
-        return list(func_set)
+                    func_ids.append(func_id)
+        return func_ids
     
     def get_layers_size(self, func_ids):
         layer_set = set()
@@ -164,10 +164,23 @@ class SequencingStrategy(metaclass=ABCMeta):
         for layer in layer_set:
             res += self.layers[layer].size
         return res
+    
+    # 根据func_ids序列进行下载
+    def get_sequencing_by_func_ids(self, func_ids):
+        
+        layer_set = set()
+        layer_download_seq = []
+        for func_id in func_ids:
+            # 部署任务
+            tmp = set(self.funcs[func_id].layer) # 当前的集合
+            layer_download_seq.extend(tmp-layer_set) # 增量添加
+            layer_set = layer_set | tmp
+        # print(layer_download_seq)
+        return layer_download_seq
             
     
 # 根据部署的顺序下载镜像  
-class FCFSSequencing(SequencingStrategy):
+class FCFSSequencingBak(SequencingStrategy):
     def __init__(self, seq, raw_strategy, order, executor):
         super().__init__(seq, raw_strategy, order, executor)
 
@@ -186,6 +199,15 @@ class FCFSSequencing(SequencingStrategy):
         # print(layer_download_seq)
         return layer_download_seq
 
+class FCFSSequencing(SequencingStrategy):
+    def __init__(self, seq, raw_strategy, order, executor):
+        super().__init__(seq, raw_strategy, order, executor)
+
+    def get_sequencing(self, server_id):
+        func_ids = [] 
+        for funcs in self.get_core_execution_sequence(server_id):
+            func_ids.extend(funcs)
+        return self.get_sequencing_by_func_ids(func_ids)
 
 # 使用sindey decomposition
 class GLSASequencing(SequencingStrategy):
@@ -237,7 +259,7 @@ class CNTRSequencing(SequencingStrategy):
         return need_layer
     
 
-class DALPSequencing(SequencingStrategy):
+class DALPSequencingBak(SequencingStrategy):
     def __init__(self, seq, raw_strategy, order, executor):
         super().__init__(seq, raw_strategy, order, executor)
 
@@ -282,6 +304,98 @@ class DALPSequencing(SequencingStrategy):
             layer_download_seq.extend(tmp-layer_set) # 增量添加
             layer_set = layer_set | tmp
         return layer_download_seq
+
+
+
+'''
+1. 先根据每个核的任务调度序列，创建如下图，横轴表示核调度序列，纵轴表示任务之间的先序关系
+o -> o -> o -> o -> ... -> o
+  \,
+o -> o -> o -> ... -> o
+        /'
+o -> o -> o
+
+2. 计算每个节点node的权重
+w(node) = 外部通信*平均通信延迟 + 执行时间 + max(child weight)
+
+3. 根据权重从大到小下载每个节点的镜像块
+'''
+class DALPSequencing(SequencingStrategy):
+    def __init__(self, seq, raw_strategy, order, executor):
+        super().__init__(seq, raw_strategy, order, executor)
+
+    def get_outside_comm(self, func_id):
+        max_trans_size = 0
+        for sfid in list(self.G.successors(func_id)):
+            if sfid not in self.need_funcs:
+                max_trans_size = max(max_trans_size, self.executor.get_weight(func_id, sfid))     
+        return max_trans_size
+    
+    def get_func_seq(self, server_id, core_tasks):
+        core_tasks_id = []
+        id = 0
+        id2task = {}
+        # 编号
+        for tasks in core_tasks:
+            tasks_id = []
+            for task in tasks:
+                id2task[id] = task
+                tasks_id.append(id)
+                id+=1
+            core_tasks_id.append(tasks_id)
+
+        # 创建节点，一共id个
+        G = nx.DiGraph()
+        for i in range(id):
+            G.add_node(i)
+        
+        # 核内部任务的序列关系
+        for sublist in core_tasks_id:
+            for i in range(len(sublist) - 1):
+                G.add_edge(sublist[i], sublist[i+1])
+
+        # 核之间任务的关系
+        for i,s1 in enumerate(core_tasks_id):
+            for j,s2 in enumerate(core_tasks_id):
+                if i == j:
+                    continue
+                for t1 in s1:
+                    for t2 in s2:
+                        if nx.has_path(self.G, id2task[t1], id2task[t2]):
+                            G.add_edge(t1, t2)
+        
+        # 平均通信延迟        
+        mean_comm = np.mean(self.executor.server_comm[server_id][self.executor.server_comm[server_id]!=0])
+
+        # 计算weight
+        nodes = list(reversed(list(nx.topological_sort(G))))
+        weight_node = {}
+        for node in nodes:
+            weight_node[node] = self.get_outside_comm(id2task[node]) * mean_comm + self.executor.func_process[id2task[node]][server_id]
+
+            succ = G.successors(node)
+            max_succ_weight = 0
+            for suc in succ:
+                max_succ_weight = max(max_succ_weight, weight_node[suc])
+
+            weight_node[node] += max_succ_weight
+
+
+        # node根据weight降序排序        
+        nodes = sorted(nodes, key=lambda x: weight_node[x], reverse=True)
+
+        res = [id2task[id] for id in nodes]
+        return res
+
+    def get_sequencing(self, server_id):
+        self.server_id = server_id
+        self.need_funcs = self.get_need_funcs(server_id)
+        core_tasks = self.get_core_execution_sequence(server_id)
+        # print(core_task)
+        assert len(core_tasks) == self.executor.servers[server_id].core
+        
+        func_ids = self.get_func_seq(server_id, core_tasks)
+        return self.get_sequencing_by_func_ids(func_ids)
 
 
 class Sequencing:

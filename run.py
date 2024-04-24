@@ -13,7 +13,7 @@ def parse():
     # parser.add_argument("-d","--data", type=str, default="./data/cluster/data_2.txt", help="specify data file")
     parser.add_argument("-d","--data", type=str, default="./data/task/application_csv/app_3.csv", help="specify data file")
     parser.add_argument("-s","--scheduler", type=str, choices=['SDTS','HEFT','GenDoc','Optim','LCAAP','SDTSPlus','Propose', 'ProposePlus'], default="SDTS", help="specify scheduler type")
-    parser.add_argument("--seq", type=str, choices=['FCFS', 'LOPO', 'CNTR','GLSA', 'DALP'], default="FCFS", help="specify sequence algorithm")
+    parser.add_argument("--seq", type=str, choices=['FCFS', 'LOPO', 'CNTR','GLSA', 'DALP'], default="DALP", help="specify sequence algorithm")
     parser.add_argument("-g","--gantta", action="store_true", help="show gantta or not")
     parser.add_argument("--dag", action="store_true", help="show dag or not")
     args = parser.parse_args()
