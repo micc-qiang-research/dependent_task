@@ -100,16 +100,23 @@ get_filename = [
 
 def get_scheduler():
     res = []
-    if run_config.sequence:
-        sequence_strategy = run_config.sequence_strategy
-        sequence_scheduler = run_config.sequence_scheduler
-        for sched in sequence_scheduler:
-            for seq in sequence_strategy:
-                res.append(f"{sched}-{seq}")
-    else:
-        scheduler = run_config.scheduler_run
+    # scheduler
+    if run_config.setting == 0:
+        scheduler = run_config.scheduler
         for sched in scheduler:
-            res.append(f"makespan_{sched}")
+            s = getattr(run_config, sched)
+            res.append(f"{sched}")
+    # deploy
+    elif run_config.setting == 1:
+        deploy = run_config.deploy
+        default_sequence = run_config.default_sequence
+        for d in deploy:
+            res.append(f"{d}-{default_sequence}")
+    else:
+        sequence = run_config.sequence
+        default_deploy = run_config.default_deploy
+        for s in sequence:
+            res.append(f"{default_deploy}-{s}")
     return res
 
 scheduler = get_scheduler()

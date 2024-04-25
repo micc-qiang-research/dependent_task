@@ -5,6 +5,6 @@ from .gendoc import *
 from .optim import *
 from .lcaap import *
 from .sdtsPlus import *
-from .propose import *
+from .lpts import *
 from .proposePlus import *
 from .sequencing import *

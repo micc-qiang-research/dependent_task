@@ -2,12 +2,12 @@ import numpy as np
 from typing import NamedTuple
 from docplex.mp.model import Model
 import networkx as nx
-from .propose import Propose
+from .lpts import LPTS
 from .executor import Executor
 from heft import heft
 import math
 
-class ProposePlus(Propose):
+class ProposePlus(LPTS):
     
     def solve_layer_sequence_problem(self, n, func_ids, deploy_cores=None):
         if len(func_ids) == 0:

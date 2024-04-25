@@ -2,24 +2,33 @@ from types import SimpleNamespace
 
 run_config = SimpleNamespace(**{
 
-    # sequence相关
-
-    "sequence": False,
-
-    ############ sequence true start #############    
-    "sequence_strategy": ["FCFS", "LOPO", "CNTR", "GLSA", "DALP"],
-    "sequence_scheduler": ["Propose"],
-    ########### sequence true end ############
-
-    ############ sequence false start ##########
-    # report
-    "scheduler_show": ["SDTS","GenDoc", "HEFT","LCAAP", "SDTSPlus","Propose"],
-
-    # run_all
-    "scheduler_run": ["SDTS","GenDoc", "HEFT","LCAAP", "SDTSPlus","Propose"],
-
-    ############ sequence flase end ###############
+    # 0: 总测试，选择scheduler中所有调度器，然后调度
+    # 1: 测试deploy策略的有效性，sequence策略固定
+    # 2: 测试sequence策略的有效性，deploy策略固定
+    "setting": 0, # 0: 总测试，1：deploy，2: sequence
     
+    "default_deploy": "LPTS",
+    # "default_deploy": "SDTSPlus",
+    "default_sequence": "DALP",
+
+    # 部署策略种类
+    "deploy": ["HEFT", "GenDoc", "SDTS", "LCAAP", "LPTS"],
+    # "deploy": ["HEFT", "GenDoc", "SDTS", "LCAAP", "SDTSPlus"],
+
+    # 序列化下载策略种类
+    "sequence": ["FCFS", "LOPO", "CNTR", "GLSA", "DALP"],
+
+    # 调度器：综合了部署和序列化下载决策
+    "shceduler": ["HEFT", "GenDoc", "SDTS", "LASA", "Propose"],
+    # "scheduler": ["HEFT", "GenDoc", "SDTS", "LASA", "SDTSPlus"],
+
+    # 调度策略的 部署+序列化下载决策
+    "HEFT": ["HEFT", "FCFS"],
+    "GenDoc": ["GenDoc", "FCFS"],
+    "SDTS": ["SDTS", "FCFS"],
+    "LASA": ["LCAAP","GLSA"],
+    "SDTSPlus": ["SDTSPlus", "DALP"],
+    "Propose": ["LPTS", "DALP"],
     
     # generate_dataset
     "K": 5,

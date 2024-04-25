@@ -45,7 +45,7 @@ class RunExperiment:
         param = RunExperiment.run_once(filename)
         return param
 
-    def get_scheduler():
+    def get_scheduler_bak():
         res = []
         if run_config.sequence:
             sequence_strategy = run_config.sequence_strategy
@@ -56,7 +56,28 @@ class RunExperiment:
         else:
             scheduler = run_config.scheduler_run
             for sched in scheduler:
-                res.append((f"makespan_{sched}", sched, None))
+                res.append((f"{sched}", sched, None))
+        return res
+    
+    def get_scheduler():
+        res = []
+        # scheduler
+        if run_config.setting == 0:
+            scheduler = run_config.scheduler
+            for sched in scheduler:
+                s = getattr(run_config, sched)
+                res.append((f"{sched}", s[0], s[1]))
+        # deploy
+        elif run_config.setting == 1:
+            deploy = run_config.deploy
+            default_sequence = run_config.default_sequence
+            for d in deploy:
+                res.append((f"{d}-{default_sequence}", d, default_sequence))
+        else:
+            sequence = run_config.sequence
+            default_deploy = run_config.default_deploy
+            for s in sequence:
+                res.append((f"{default_deploy}-{s}", default_deploy, s))
         return res
 
     def run_once(filename):
@@ -81,7 +102,7 @@ class RunExperiment:
             exit(1)
         return param
 
-    # 增量保存
+    # 增量保存 **废弃了**
     def save(filename, data):
         result_filename = get_in_result_path(filename)
         if os.path.exists(result_filename):
@@ -167,6 +188,26 @@ def check_exist(k ,ccr, lfr, dcr):
     import os
     return os.path.exists("__result__/data_{}_{}_{}_{}.pkl".format(k ,ccr, lfr, dcr))
 
+# 临时改变名字，trival
+def rename(k, ccr, lfr, dcr):
+    file = f"__result__/data_{k}_{ccr}_{lfr}_{dcr}.pkl"
+    with open(file, 'rb') as handle:
+        df = pickle.load(handle)
+        # df.rename(columns={'Propose-GLSA': 'LPTS-GLSA'}, inplace=True)
+        # df.rename(columns={'Propose-FCFS': 'LPTS-FCFS'}, inplace=True)
+        # df.rename(columns={'Propose-LOPO': 'LPTS-LOPO'}, inplace=True)
+        # df.rename(columns={'Propose-CNTR': 'LPTS-CNTR'}, inplace=True)
+        # df.rename(columns={'Propose-DALP': 'LPTS-DALP'}, inplace=True)
+        df.rename(columns={'makespan_SDTS': 'SDTS-DALP'}, inplace=True)
+        df.rename(columns={'makespan_Propose': 'LPTS-DALP'}, inplace=True)
+        df.rename(columns={'makespan_GenDoc': 'GenDoc-DALP'}, inplace=True)
+        df.rename(columns={'makespan_HEFT': 'HEFT-DALP'}, inplace=True)
+        df.rename(columns={'makespan_LCAAP': 'LCAAP-DALP'}, inplace=True)
+        df.rename(columns={'makespan_SDTSPlus': 'SDTSPlus-DALP'}, inplace=True)
+
+    with open(file, 'wb') as handle:
+            pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 if __name__ == '__main__':
     K = run_config.range_K # server number
     CCRs = run_config.range_ccr # commucation to computation ratio
@@ -187,6 +228,8 @@ if __name__ == '__main__':
                     cnt += 1
                     print(f"==========={cnt}/{len(K)*len(CCRs)*len(LFRs) * len(DCRs)}===============")
                     print("k: {}, ccr: {}, lfr: {}, dcr: {}".format(*data))
+                    # rename
+                    # rename(k ,ccr, lfr, dcr)
                     if check_exist(*data):
                         print("using cache!")
                         continue

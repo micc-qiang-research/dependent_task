@@ -8,7 +8,8 @@ from .sdtsPlus import SDTSPlus
 from heft import heft
 import math
 
-class Propose(SDTSPlus):
+# linear program base task scheduling
+class LPTS(SDTSPlus):
     def is_func_has_layer(self, func, layer):
         if layer in self.funcs[func].layer:
             return 1
