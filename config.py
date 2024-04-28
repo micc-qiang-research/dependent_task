@@ -19,7 +19,7 @@ run_config = SimpleNamespace(**{
     "sequence": ["FCFS", "LOPO", "CNTR", "GLSA", "DALP"],
 
     # 调度器：综合了部署和序列化下载决策
-    "shceduler": ["HEFT", "GenDoc", "SDTS", "LASA", "Propose"],
+    "scheduler": ["HEFT", "GenDoc", "SDTS", "LASA", "Propose"],
     # "scheduler": ["HEFT", "GenDoc", "SDTS", "LASA", "SDTSPlus"],
 
     # 调度策略的 部署+序列化下载决策
