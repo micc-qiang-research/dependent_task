@@ -148,6 +148,7 @@ def get_makespan(ltype):
     return makespans, vals
 
 def draw_linear(x_name, x, ys):
+    plt.rcParams.update({"font.size":14})
     # print(ys["SDTSPlus"])
     for s in scheduler:
         plt.plot(x, ys[s], label=s)

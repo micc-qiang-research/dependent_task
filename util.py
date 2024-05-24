@@ -138,6 +138,7 @@ def draw_cdf(n, label, filename = "lat_cdf.csv"):
     input_file = os.path.join(result_path,filename)
     basename, _ = os.path.splitext(filename)
     output_file = os.path.join(result_path,basename+".png")
+    plt.rcParams.update({"font.size":14})
 
     #读取CSV文件
     data = pd.read_csv(input_file)
