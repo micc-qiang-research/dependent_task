@@ -190,7 +190,7 @@ def check_exist(k ,ccr, lfr, dcr):
 
 # 临时改变名字，trival
 def rename(k, ccr, lfr, dcr):
-    file = f"__result__/app30-放置算法对比/data_{k}_{ccr}_{lfr}_{dcr}.pkl"
+    file = f"__result__/app30/data_{k}_{ccr}_{lfr}_{dcr}.pkl"
     with open(file, 'rb') as handle:
         df = pickle.load(handle)
         # df.rename(columns={'Propose-GLSA': 'LPTS-GLSA'}, inplace=True)
@@ -198,12 +198,12 @@ def rename(k, ccr, lfr, dcr):
         # df.rename(columns={'Propose-LOPO': 'LPTS-LOPO'}, inplace=True)
         # df.rename(columns={'Propose-CNTR': 'LPTS-CNTR'}, inplace=True)
         # df.rename(columns={'Propose-DALP': 'LPTS-DALP'}, inplace=True)
-        # df.rename(columns={'makespan_SDTS': 'SDTS-DALP'}, inplace=True)
-        # df.rename(columns={'makespan_Propose': 'LPTS-DALP'}, inplace=True)
-        # df.rename(columns={'makespan_GenDoc': 'GenDoc-DALP'}, inplace=True)
-        # df.rename(columns={'makespan_HEFT': 'HEFT-DALP'}, inplace=True)
-        # df.rename(columns={'makespan_LCAAP': 'LCAAP-DALP'}, inplace=True)
-        df.rename(columns={'SDTSPlus': 'SDTSPlus-DALP'}, inplace=True)
+        df.rename(columns={'makespan_SDTS': 'SDTS'}, inplace=True)
+        df.rename(columns={'makespan_SDTSPlus': 'Propose'}, inplace=True)
+        df.rename(columns={'makespan_GenDoc': 'GenDoc'}, inplace=True)
+        df.rename(columns={'makespan_HEFT': 'HEFT'}, inplace=True)
+        df.rename(columns={'makespan_LCAAP': 'LASA'}, inplace=True)
+        # df.rename(columns={'SDTSPlus': 'SDTSPlus-DALP'}, inplace=True)
 
     with open(file, 'wb') as handle:
             pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -230,6 +230,7 @@ if __name__ == '__main__':
                     print("k: {}, ccr: {}, lfr: {}, dcr: {}".format(*data))
                     # rename
                     # rename(k ,ccr, lfr, dcr)
+                    # continue
                     if check_exist(*data):
                         print("using cache!")
                         continue

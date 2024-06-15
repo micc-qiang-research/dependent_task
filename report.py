@@ -168,10 +168,13 @@ def draw_linear(x_name, x, ys):
 
 def draw_sensibility(ltype):
     makespans, vals = get_makespan(ltype)
+    print(makespans)
+    print(vals)
     draw_linear(typename[ltype], vals, makespans)
 
 
 def get_makespan_total():
+    # filenames = glob("__result__/data_*_*_*_10.0.pkl")
     filenames = glob("__result__/data_*.pkl")
     # filenames = get_all_files[Type.CCR]()
     # filenames = get_all_files[Type.LFR]()
@@ -185,6 +188,17 @@ def get_makespan_total():
             # scheduler = ["SDTS","GenDoc", "HEFT", "Optim"]
             for i,s in enumerate(scheduler):
                 makespan[i].extend(list(data[s]))
+    
+    # 计算平均Makespan减少的百分比
+    mean_makespan = np.array(makespan).mean(axis=1)
+    idx = 4
+    imporve_makespan = mean_makespan[idx]
+    print("improve", imporve_makespan)
+    print("-------------")
+    for i,s in enumerate(scheduler):
+        if i==idx: continue
+        print(s,mean_makespan[i],(mean_makespan[i]-imporve_makespan)/mean_makespan[i]*100)
+    print("--------------")
     return makespan
 
 def prepare_pairwise_data(makespan):

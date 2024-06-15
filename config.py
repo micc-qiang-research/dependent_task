@@ -5,10 +5,10 @@ run_config = SimpleNamespace(**{
     # 0: 总测试，选择scheduler中所有调度器，然后调度
     # 1: 测试deploy策略的有效性，sequence策略固定
     # 2: 测试sequence策略的有效性，deploy策略固定
-    "setting": 2, # 0: 总测试，1：deploy，2: sequence
+    "setting": 0, # 0: 总测试，1：deploy，2: sequence
     
     "default_deploy": "LPTS",
-    # "default_deploy": "SDTSPlus",
+    # "default_deploy": "GenDoc",
     "default_sequence": "DALP",
 
     # 部署策略种类
