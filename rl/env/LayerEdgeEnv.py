@@ -164,7 +164,7 @@ class Machine:
     
     # 判断是否还能容纳此任务
     def isAccommodate(self, task: Task):
-        if self.total_download_size + task.getAddLayersSize() > self.storage:
+        if self.total_download_size + self.getAddLayersSize(task) > self.storage:
             return False
         # TODO. container number的限制如何做？
         return True
@@ -184,6 +184,7 @@ class Machine:
         # 计算Task完成时间
         execute_time = task.cpu / self.cpu
         self.task_finish_time = max(self.download_finish_time, self.task_finish_time) + execute_time
+        return self.task_finish_time
 
     def getAddLayers(self, task: Task):
         # 计算Layer下载完成时间
@@ -194,11 +195,32 @@ class Machine:
     def getAddLayersSize(self, task: Task):
         return sum([self.layer_size[layer] for layer in self.getAddLayers(task)])
 
+class Cloud(Machine):
+    def __init__(self, cpu: float, storage: float, bandwidth: float, layer_size: list):
+        super().__init__(cpu, storage, bandwidth, layer_size)
+
+    def addTask(self, task: Task):
+        # 计算Layer下载完成时间
+        add_layers = task.layer
+        for layer in add_layers:
+            self.layers[layer] = self.download_finish_time + self.layer_size[layer]/self.bandwidth
+            # 记录信息
+            self.download_finish_time = self.layers[layer]
+            self.total_download_size += self.layer_size[layer]
+
+        # 计算Task完成时间
+        execute_time = task.cpu / self.cpu
+        self.task_finish_time = max(self.download_finish_time, self.task_finish_time) + execute_time
+        return self.task_finish_time
+    
+    def isAccommodate(self, task: Task):
+        return True
+
 class LayerEdgeEnv(gym.Env):
     def __init__(self, render_mode="human"):
         self.data = Data(5, 50, 20, 100)
         N,L = data.N, data.L
-        obs_dim = N * (3*L+3) + N * (5*L+5)
+        obs_dim = N * (3*L+3) + N * (L+5)
         act_dim = N+1
 
         self.observation_space = spaces.Box(
@@ -209,11 +231,15 @@ class LayerEdgeEnv(gym.Env):
         self.machines = []
         for machine in data.machines:
             self.machines.append(Machine(machine['cpu'], machine['storage'], machine['bandwidth'], data.layers))
-        self.layers = data.layers
+        # self.machines.append(Machine(data.cloud['cpu'], data.cloud['storage'], data.cloud['bandwidth'], data.layers))
+        self.layers = data.layers # layer_size的信息
+        self.cloud = Cloud(data.cloud['cpu'], data.cloud['storage'], data.cloud['bandwidth'], data.layers)
 
     def __getState(self):
         # 获取当前被调度的任务
         task = self.__getTask()
+        if task is None:
+            return None
 
         # for machine
         state = []
@@ -232,7 +258,7 @@ class LayerEdgeEnv(gym.Env):
             state.append(addLayerSize / machine.bandwidth) # 需要下载的时间
             state.append(max(self.timestamp, machine.task_finish_time)-self.timestamp) # waiting time
             state.append(task.cpu/machine.cpu) # 计算时间
-            state.append(task.has_layer) # 包含的层
+            state.extend(task.has_layer) # 包含的层
             state.append(task.cpu) # request cpu resource
 
         return state
@@ -243,27 +269,41 @@ class LayerEdgeEnv(gym.Env):
         self.data.getAnotherTrace() # 初始化新的trace
         for machine in self.machines:
             machine.reset()
-        self.state = self.__getState()
-        return self.state
+        self.cloud.reset()
+        return self.__getState()
     
-    def __getTask(self):
-        return self.data.trace[self.trace_idx]
+    def __getTask(self) -> Task:
+        if self.__idDone():
+            return None
+        task_info = self.data.trace[self.trace_idx]
+        arrival_time, container_id = task_info[0], int(task_info[1])
+        container = self.data.containers[container_id]
+        self.timestamp = arrival_time
+        return Task(container, self.layers)
+    
+    def __next(self):
+        self.trace_idx += 1
 
     def step(self, action):
-        moves = {
-            0: (-1, 0),  # 上
-            1: (1, 0),   # 下
-            2: (0, -1),  # 左
-            3: (0, 1)    # 右
-        }
-        self.state = np.clip(self.state + np.array(moves[action]), 0, 9)
-        done = np.all(self.state == 9)
-        reward = 100 if done else -1
-        return self.state, int(reward), done,  {}
+        reward = 0
+        if action == self.data.N:
+            # to cloud
+            reward = -self.cloud.addTask(self.__getTask())
+        else:
+            # to edge
+            reward = -self.machines[action].addTask(self.__getTask())
+        # 到下一个task
+        self.__next()
+        return self.__getState(), reward, self.__idDone(),  {}
     
     # 判断动作是否合法，不合法需要重新sample
-    def isValid(self, action):
-        pass
+    def valid_action(self, action: int) -> bool:
+        if(action == self.data.N):
+            return True
+        return self.machines[action].isAccommodate(self.__getTask())
 
     def render(self):
         print(self.state)
+
+    def __idDone(self) -> bool:
+        return self.trace_idx == self.data.trace.shape[0]

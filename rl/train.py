@@ -22,6 +22,7 @@ target_update = 10
 buffer_size = 10000
 minimal_size = 500
 batch_size = 64
+max_action_count = 10 # 最多重复选择动作次数，超过此次数则选择默认
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device(
     "cpu")
 
@@ -46,7 +47,14 @@ for i in range(10):
             state = env.reset()
             done = False
             while not done:
+                action_count = 1
                 action = agent.take_action(state)
+                while not env.valid_action(action) and action_count < max_action_count:
+                    action = agent.take_action(state)
+                    action_count += 1
+                if not env.valid_action(action):
+                    action = action_dim-1
+
                 next_state, reward, done, _ = env.step(action)
                 replay_buffer.add(state, action, reward, next_state, done)
                 state = next_state
