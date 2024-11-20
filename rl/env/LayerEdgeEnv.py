@@ -92,8 +92,8 @@ class Data:
 
     def getCloud(self):
         cloud = dict()
-        cloud['cpu'] = np.random.uniform(self.lo_cpu, self.hi_cpu)
-        cloud['storage'] = Math.INF
+        cloud['cpu'] = self.hi_cpu
+        cloud['storage'] = math.inf # cloud没有带宽限制
         cloud['bandwidth'] = np.random.uniform(self.lo_bandwidth, self.hi_bandwidth)
         return cloud
 
@@ -106,6 +106,7 @@ class Data:
         self.layers = self.getLayers(L)
         self.containers = self.getContainerInfo(L, C)
         self.trace = self.getAnotherTrace()
+        self.cloud = self.getCloud()
         # return machines, layers, containers, trace
     
     def getAnotherTrace(self):
@@ -114,24 +115,139 @@ class Data:
 np.random.seed(0)
 data = Data(5, 50, 20, 100)
 print(data.machines)
+print(data.cloud)
 print(data.layers)
 print(data.containers)
 print(data.trace)
 print("another: ")
 print(data.getAnotherTrace())
 
+print("=================================")
+
+class Task:
+    def __init__(self, container: dict, layer_size: list):
+        self.container = container
+        self.cpu = container['cpu']
+        self.layer = set(container['layer'])
+        self.has_layer = []
+        for i in range(len(layer_size)):
+            if(i in self.layer):
+                self.has_layer.append(1)
+            else:
+                self.has_layer.append(0)
+
+class Machine:
+    def __init__(self, cpu: float, storage: float, bandwidth: float, layer_size: list):
+        self.cpu = cpu
+        self.storage = storage
+        self.bandwidth = bandwidth
+        self.L = len(layer_size)
+        self.layer_size = layer_size
+        self.reset()
+
+    def reset(self):
+        self.layers = {} # 记录对应layers的下载完成时间
+        self.download_finish_time = 0
+        # self.tasks = []
+        self.task_finish_time = 0
+        self.total_download_size = 0
+        self.has_layer = [0] * self.L
+
+    def getRemainingDownloadTime(self, timestamp: float):
+        res = []
+        for i in range(self.L):
+            if self.has_layer[i] == 0 or self.layers[i] >= timestamp:
+                res.append(timestamp)
+            else:
+                res.append(self.layers[i])
+        return res
+    
+    # 判断是否还能容纳此任务
+    def isAccommodate(self, task: Task):
+        if self.total_download_size + task.getAddLayersSize() > self.storage:
+            return False
+        # TODO. container number的限制如何做？
+        return True
+                
+    def addTask(self, task: Task):
+        # self.tasks.append(task)
+
+        # 计算Layer下载完成时间
+        add_layers = self.getAddLayers(task)
+        for layer in add_layers:
+            self.layers[layer] = self.download_finish_time + self.layer_size[layer]/self.bandwidth
+            # 记录信息
+            self.download_finish_time = self.layers[layer]
+            self.has_layer[layer] = 1
+            self.total_download_size += self.layer_size[layer]
+
+        # 计算Task完成时间
+        execute_time = task.cpu / self.cpu
+        self.task_finish_time = max(self.download_finish_time, self.task_finish_time) + execute_time
+
+    def getAddLayers(self, task: Task):
+        # 计算Layer下载完成时间
+        layers = set(task.layer)
+        add_layers = self.layers.keys() - layers
+        return add_layers
+    
+    def getAddLayersSize(self, task: Task):
+        return sum([self.layer_size[layer] for layer in self.getAddLayers(task)])
 
 class LayerEdgeEnv(gym.Env):
     def __init__(self, render_mode="human"):
-        # (0,0) -> (9,9)
+        self.data = Data(5, 50, 20, 100)
+        N,L = data.N, data.L
+        obs_dim = N * (3*L+3) + N * (5*L+5)
+        act_dim = N+1
+
         self.observation_space = spaces.Box(
-            low=0, high=9, shape=(2,), dtype=np.int32)
-        self.action_space = spaces.Discrete(4)  # 上、下、左、右
+            low=0, high=math.inf, shape=(obs_dim,), dtype=np.float32)
+        self.action_space = spaces.Discrete(act_dim)
         self.state = None
 
+        self.machines = []
+        for machine in data.machines:
+            self.machines.append(Machine(machine['cpu'], machine['storage'], machine['bandwidth'], data.layers))
+        self.layers = data.layers
+
+    def __getState(self):
+        # 获取当前被调度的任务
+        task = self.__getTask()
+
+        # for machine
+        state = []
+        for machine in self.machines:
+            state.extend(machine.has_layer)
+            state.extend(machine.getRemainingDownloadTime(self.timestamp))
+            state.extend(self.layers)
+            state.append(machine.cpu)
+            state.append(machine.bandwidth)
+            state.append(machine.download_finish_time)
+        
+        # for current request
+        for machine in self.machines:
+            addLayerSize = machine.getAddLayersSize(task)
+            state.append(addLayerSize) # 需要下载的大小
+            state.append(addLayerSize / machine.bandwidth) # 需要下载的时间
+            state.append(max(self.timestamp, machine.task_finish_time)-self.timestamp) # waiting time
+            state.append(task.cpu/machine.cpu) # 计算时间
+            state.append(task.has_layer) # 包含的层
+            state.append(task.cpu) # request cpu resource
+
+        return state
+
     def reset(self):
-        self.state = np.array([0, 0], dtype=np.int32)
+        self.timestamp = 0
+        self.trace_idx = 0
+        self.data.getAnotherTrace() # 初始化新的trace
+        for machine in self.machines:
+            machine.reset()
+        self.state = self.__getState()
         return self.state
+    
+    def __getTask(self):
+        return self.data.trace[self.trace_idx]
 
     def step(self, action):
         moves = {
@@ -144,6 +260,10 @@ class LayerEdgeEnv(gym.Env):
         done = np.all(self.state == 9)
         reward = 100 if done else -1
         return self.state, int(reward), done,  {}
+    
+    # 判断动作是否合法，不合法需要重新sample
+    def isValid(self, action):
+        pass
 
     def render(self):
         print(self.state)
