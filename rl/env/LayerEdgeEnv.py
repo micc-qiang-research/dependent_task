@@ -239,7 +239,7 @@ class LayerEdgeEnv(gym.Env):
         # 获取当前被调度的任务
         task = self.__getTask()
         if task is None:
-            return None
+            return [0] * self.observation_space.shape[0]
 
         # for machine
         state = []
