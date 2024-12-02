@@ -185,19 +185,22 @@ def get_makespan_total():
     for filename in filenames:
         with open(filename, 'rb') as handle:
             data = pickle.load(handle)
-            # scheduler = ["SDTS","GenDoc", "HEFT", "Optim"]
+            # scheduler = ["HEFT", "GenDoc", "SDTS", "LASA", "Propose"]
             for i,s in enumerate(scheduler):
                 makespan[i].extend(list(data[s]))
     
     # 计算平均Makespan减少的百分比
     mean_makespan = np.array(makespan).mean(axis=1)
+    for i in range(len(scheduler)):
+        print(scheduler[i], mean_makespan[i])
     idx = 4
+    print("base scheduler: ", scheduler[idx])
     imporve_makespan = mean_makespan[idx]
-    print("improve", imporve_makespan)
+    # print("improve", imporve_makespan)
     print("-------------")
     for i,s in enumerate(scheduler):
         if i==idx: continue
-        print(s,mean_makespan[i],(mean_makespan[i]-imporve_makespan)/mean_makespan[i]*100)
+        print("%s %f %.2f%%" % (s, mean_makespan[i],(mean_makespan[i]-imporve_makespan)/mean_makespan[i]*100))
     print("--------------")
     return makespan
 
