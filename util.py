@@ -182,3 +182,8 @@ def draw_pairwise_comparison_table(scheduler, result_better, result_equal, resul
                 row.append(cell.format(better, equal, worse))
         table.append(row)
     print(tabulate(table, headers='firstrow', tablefmt='fancy_grid'))
+
+def calcImprove(arr :list):
+    j = len(arr)-1
+    for i in range(j):
+        print((arr[i]-arr[j])/arr[i]*100)

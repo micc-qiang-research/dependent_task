@@ -26,24 +26,27 @@ default_ccr = run_config.ccr
 default_lfr = run_config.lfr
 default_dcr = run_config.dcr
 
+# data_dir = "__result__/app30-序列化下载算法对比/"
+data_dir = "__result__/"
+
 class ExtractFileHelper:
     def get_all_files():
-        return glob("__result__/data_*.pkl")
+        return glob(data_dir + "data_*.pkl")
     
     def get_file(k, ccr, lfr, dcr):
-        return "__result__/data_{}_{}_{}_{}.pkl".format(k, ccr, lfr, dcr)
+        return data_dir + "data_{}_{}_{}_{}.pkl".format(k, ccr, lfr, dcr)
 
     def get_filename_by_ccr(ccr):
-        return "__result__/data_{}_{}_{}_{}.pkl".format(default_k, ccr, default_lfr, default_dcr)
+        return data_dir + "data_{}_{}_{}_{}.pkl".format(default_k, ccr, default_lfr, default_dcr)
 
     def get_filename_by_k(k):
-        return "__result__/data_{}_{}_{}_{}.pkl".format(k, default_ccr, default_lfr, default_dcr)
+        return data_dir + "data_{}_{}_{}_{}.pkl".format(k, default_ccr, default_lfr, default_dcr)
 
     def get_filename_by_lfr(lfr):
-        return "__result__/data_{}_{}_{}_{}.pkl".format(default_k, default_ccr, lfr, default_dcr)
+        return data_dir + "data_{}_{}_{}_{}.pkl".format(default_k, default_ccr, lfr, default_dcr)
 
     def get_filename_by_dcr(dcr):
-        return "__result__/data_{}_{}_{}_{}.pkl".format(default_k, default_ccr, default_lfr, dcr)
+        return data_dir + "data_{}_{}_{}_{}.pkl".format(default_k, default_ccr, default_lfr, dcr)
 
     # 获取所有ccr文件
     def get_all_files_ccr():
@@ -66,10 +69,10 @@ class ExtractFileHelper:
     def get_index(ltype, filenames):
         res = []
 
-        pattern_k = r'__result__/data_(.*?)_{}_.*'.format(default_ccr)
-        pattern_ccr = r'__result__/data_{}_(.*?)_.*'.format(default_k)
-        pattern_lfr = r'__result__/data_{}_{}_(.*?)_.*'.format(default_k, default_ccr)
-        pattern_dcr = r'__result__/data_{}_{}_{}_(.*?).pkl'.format(default_k, default_ccr, default_lfr)
+        pattern_k = data_dir + r'data_(.*?)_{}_.*'.format(default_ccr)
+        pattern_ccr = data_dir + r'data_{}_(.*?)_.*'.format(default_k)
+        pattern_lfr = data_dir + r'data_{}_{}_(.*?)_.*'.format(default_k, default_ccr)
+        pattern_dcr = data_dir + r'data_{}_{}_{}_(.*?).pkl'.format(default_k, default_ccr, default_lfr)
         patterns = [pattern_k, pattern_ccr, pattern_lfr, pattern_dcr]
         pattern = patterns[ltype]
 
@@ -134,17 +137,23 @@ scheduler = get_scheduler()
 '''
 def get_makespan(ltype):
     filenames = get_all_files[ltype]()
-    vals = ExtractFileHelper.get_index(ltype, filenames)
+    vals = ExtractFileHelper.get_index(ltype, filenames) # 获取所有取值
     vals.sort()
     makespans = {s:[] for s in scheduler}
     for val in vals:
-        file = get_filename[ltype](val)
+        file = get_filename[ltype](val) # 获取当前取值对应的文件
         with open(file, 'rb') as handle:
             data = pickle.load(handle)
             for s in scheduler:
                 column = s
                 makespans[s].append(data[column].mean().round(2))
                 # makespans[s].append(data[column].median().round(2))
+    print("--------------")
+    print(typename[ltype])
+    for s in scheduler:
+        for i in range(len(vals)):
+            print(s, vals[i], makespans[s][i])
+    
     return makespans, vals
 
 def draw_linear(x_name, x, ys):
@@ -168,14 +177,14 @@ def draw_linear(x_name, x, ys):
 
 def draw_sensibility(ltype):
     makespans, vals = get_makespan(ltype)
-    print(makespans)
-    print(vals)
+    # print(makespans)
+    # print(vals)
     draw_linear(typename[ltype], vals, makespans)
 
 
 def get_makespan_total():
-    # filenames = glob("__result__/data_*_*_*_10.0.pkl")
-    filenames = glob("__result__/data_*.pkl")
+    # filenames = glob(data_dir + "data_*_*_*_1.0.pkl")
+    filenames = glob(data_dir + "data_*.pkl")
     # filenames = get_all_files[Type.CCR]()
     # filenames = get_all_files[Type.LFR]()
     # filenames = get_all_files[Type.DCR]()
