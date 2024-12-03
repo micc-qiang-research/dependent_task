@@ -156,6 +156,23 @@ def draw_cdf(n, label, filename = "lat_cdf.csv"):
     plt.show()
     plt.savefig(output_file)
 
+def draw_cdf_ax(ax, n, label, filename = "lat_cdf.csv"):
+    input_file = os.path.join(result_path,filename)
+    basename, _ = os.path.splitext(filename)
+
+    #读取CSV文件
+    data = pd.read_csv(input_file)
+
+    prob = data.iloc[:,0]
+    for i in range(n):
+        delays = data.iloc[:,i+1]
+        ax.plot(delays, prob, label=label[i])
+
+    #设置图表属性
+    ax.set_xlabel('Latency')
+    ax.set_ylabel('CDF') 
+    # plt.xlim(0,80000)
+    ax.legend()
 
 def get_in_result_path(filename):
     return os.path.join(result_path, filename)

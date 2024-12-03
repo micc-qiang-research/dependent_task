@@ -1,6 +1,6 @@
 import pandas as pd
 import pickle
-from util import prepare_draw_cdf, draw_cdf, get_in_result_path, draw_pairwise_comparison_table
+from util import prepare_draw_cdf, draw_cdf, get_in_result_path, draw_pairwise_comparison_table, draw_cdf_ax
 import numpy as np
 from config import run_config
 from glob import glob
@@ -175,16 +175,35 @@ def draw_linear(x_name, x, ys):
     # 展示图形
     plt.show()
 
-def draw_sensibility(ltype):
+def draw_linear_ax(ax, x_name, x, ys):
+    # print(ys["SDTSPlus"])
+    for s in scheduler:
+        ax.plot(x, ys[s], label=s)
+
+    # plt.plot(x, [1,2,3,4,5])
+    # 添加标题和轴标签
+    # ax.set_title(x_name)
+    ax.set_xlabel(x_name)
+    ax.set_ylabel('Avg. Makespan')
+    ax.set_xticks(x)
+
+    # 添加图例
+    ax.legend(fontsize=8)
+
+def draw_sensibility(ltype, ax = None):
     makespans, vals = get_makespan(ltype)
     # print(makespans)
     # print(vals)
-    draw_linear(typename[ltype], vals, makespans)
+    if ax is None:
+        draw_linear(typename[ltype], vals, makespans)
+    else:
+        draw_linear_ax(ax, typename[ltype], vals, makespans)
 
-
-def get_makespan_total():
-    # filenames = glob(data_dir + "data_*_*_*_1.0.pkl")
-    filenames = glob(data_dir + "data_*.pkl")
+def get_makespan_total(filenames = None):
+    if filenames is None:
+        filenames = glob(data_dir + "data_*.pkl")
+        # filenames = glob(data_dir + "data_*_*_*_1.0.pkl")
+    # filenames = glob(data_dir + "data_*.pkl")
     # filenames = get_all_files[Type.CCR]()
     # filenames = get_all_files[Type.LFR]()
     # filenames = get_all_files[Type.DCR]()
@@ -257,6 +276,51 @@ if(args.sensitive):
     draw_sensibility(Type.LFR)
     draw_sensibility(Type.DCR)
 
+# 画四宫图
+def draw_full():
+    import matplotlib.pyplot as plt
+    f, ax = plt.subplots(2, 2, figsize=(6, 5.5))
+    #设置主标题
+    # f.suptitle('My Figure')
+    #设置子标题
+    ax[0][0].set_title('(a) CDF distribution')
+    makespan = get_makespan_total()
+    prepare_draw_cdf(makespan)
+    draw_cdf_ax(ax[0][0], len(scheduler), scheduler, "lat_cdf.csv")
+
+    ax[0][1].set_title('(b) CCR')
+    draw_sensibility(Type.CCR, ax[0][1])
+
+    ax[1][0].set_title('(c) LFR')
+    draw_sensibility(Type.LFR, ax[1][0])
+
+    ax[1][1].set_title('(d) DCR')
+    draw_sensibility(Type.DCR, ax[1][1])
+
+    f.subplots_adjust(hspace=0.4, wspace=0.4)
+    plt.show()
+
+# 画二宫图
+def draw_half():
+    import matplotlib.pyplot as plt
+    f, ax = plt.subplots(1, 2, figsize=(6, 2.75))
+    #设置主标题
+    # f.suptitle('My Figure')
+    #设置子标题
+    ax[0].set_title('(a) DCR = 1')
+    makespan = get_makespan_total(filenames = glob(data_dir + "data_*_*_*_1.0.pkl"))
+    prepare_draw_cdf(makespan)
+    draw_cdf_ax(ax[0], len(scheduler), scheduler, "lat_cdf.csv")
+
+    ax[1].set_title('(b) DCR = 10')
+    makespan = get_makespan_total(filenames = glob(data_dir + "data_*_*_*_10.0.pkl"))
+    prepare_draw_cdf(makespan)
+    draw_cdf_ax(ax[1], len(scheduler), scheduler, "lat_cdf.csv")
+
+    f.subplots_adjust(hspace=0.4, wspace=0.4)
+    plt.show()
+
+# draw_half()
 
 
 
