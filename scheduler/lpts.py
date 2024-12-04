@@ -68,6 +68,8 @@ class LPTS(SDTSPlus):
         
         self.mdl = Model(name="propose_solver")
         mdl = self.mdl
+        mdl.parameters.threads = 4
+        mdl.parameters.workmem = 2048
         
         self.max_core_number = max([s.core for s in self.servers])
         range_core = range(self.max_core_number)

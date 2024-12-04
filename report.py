@@ -27,7 +27,10 @@ default_lfr = run_config.lfr
 default_dcr = run_config.dcr
 
 # data_dir = "__result__/app30-序列化下载算法对比/"
-data_dir = "__result__/"
+data_dir = "__result__/app30-new/"
+# data_dir = "__result__/app30-new-部署/"
+# data_dir = "__result__/app30-new-序列化/"
+
 
 class ExtractFileHelper:
     def get_all_files():
@@ -177,8 +180,9 @@ def draw_linear(x_name, x, ys):
 
 def draw_linear_ax(ax, x_name, x, ys):
     # print(ys["SDTSPlus"])
-    for s in scheduler:
-        ax.plot(x, ys[s], label=s)
+    marker = ['o', 's', 'D', '^', 'v']
+    for i,s in enumerate(scheduler):
+        ax.plot(x, ys[s], label=s, marker=marker[i])
 
     # plt.plot(x, [1,2,3,4,5])
     # 添加标题和轴标签
@@ -280,6 +284,7 @@ if(args.sensitive):
 def draw_full():
     import matplotlib.pyplot as plt
     f, ax = plt.subplots(2, 2, figsize=(6, 5.5))
+    # plt.rcParams.update({"font.size":8})
     #设置主标题
     # f.suptitle('My Figure')
     #设置子标题
@@ -320,6 +325,7 @@ def draw_half():
     f.subplots_adjust(hspace=0.4, wspace=0.4)
     plt.show()
 
+draw_full()
 # draw_half()
 
 

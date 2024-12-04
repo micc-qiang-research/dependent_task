@@ -12,7 +12,7 @@ run_config = SimpleNamespace(**{
     "default_sequence": "DALP",
 
     # 部署策略种类
-    "deploy": ["HEFT", "GenDoc", "SDTS", "LCAAP", "LPTS"],
+    "deploy": ["HEFT", "GenDoc", "SDTS", "LCAA", "LPTS"],
     # "deploy": ["HEFT", "GenDoc", "SDTS", "LCAAP", "SDTSPlus"],
 
     # 序列化下载策略种类
@@ -26,20 +26,22 @@ run_config = SimpleNamespace(**{
     "HEFT": ["HEFT", "FCFS"],
     "GenDoc": ["GenDoc", "FCFS"],
     "SDTS": ["SDTS", "FCFS"],
-    "LASA": ["LCAAP","GLSA"],
+    "LASA": ["LCAA","GLSA"],
     "SDTSPlus": ["SDTSPlus", "DALP"],
     "Propose": ["LPTS", "DALP"],
     
     # generate_dataset
     "K": 5,
     "ccr": 1.0,
-    "lfr": 5.0,
-    "dcr": 5.0, # 平均有25个镜像块
+    "lfr": 4.0,
+    "dcr": 4.0, # 平均有20个镜像块
 
     "range_K": [5],
     "range_ccr": [0.1, 0.5, 1.0, 1.5, 2.0],
-    "range_lfr": [1.0, 3.0, 5.0, 7.0, 10.0], # layer和func的数量关系
-    "range_dcr": [1.0, 2.0, 5.0, 8.0, 10.0], # 镜像的平均size
+    "range_lfr": [1.0, 2.0, 4.0, 6.0, 8.0, 10.0],
+    "range_dcr": [1.0, 2.0, 4.0, 6.0, 8.0, 10.0],
+    # "range_lfr": [1.0, 3.0, 5.0, 7.0, 10.0], # layer和func的数量关系
+    # "range_dcr": [1.0, 2.0, 5.0, 8.0, 10.0], # 镜像的平均size
 
     # "range_K": [5],
     # "range_ccr": [1.0],
