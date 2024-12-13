@@ -3,7 +3,7 @@ from .heft import *
 from .sdts import *
 from .gendoc import *
 from .optim import *
-from .lcaap import *
+from .lcaa import *
 from .sdtsPlus import *
 from .lpts import *
 from .proposePlus import *

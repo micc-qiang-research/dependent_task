@@ -8,7 +8,7 @@ from cluster import Core
 from .executor import Executor
 from .sequencing import GenStrategy
 
-class LCAAP(Scheduler):
+class LCAA(Scheduler):
     def __init__(self, data, config):
         super().__init__(data, config)
 
