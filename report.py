@@ -283,7 +283,7 @@ if(args.sensitive):
 # 画四宫图
 def draw_full():
     import matplotlib.pyplot as plt
-    f, ax = plt.subplots(2, 2, figsize=(6, 5.5))
+    f, ax = plt.subplots(2, 2, figsize=(6.5, 6))
     # plt.rcParams.update({"font.size":8})
     #设置主标题
     # f.suptitle('My Figure')
@@ -302,7 +302,8 @@ def draw_full():
     ax[1][1].set_title('(d) DCR')
     draw_sensibility(Type.DCR, ax[1][1])
 
-    f.subplots_adjust(hspace=0.4, wspace=0.4)
+    # f.subplots_adjust(hspace=0.4, wspace=0.4)
+    plt.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.1, wspace=0.4, hspace=0.4)
     plt.show()
 
 # 画二宫图
