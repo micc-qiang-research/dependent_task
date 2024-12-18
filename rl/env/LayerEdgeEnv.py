@@ -98,6 +98,7 @@ class Data:
         return cloud
 
     def __init__(self, N, L, C, Len):
+        np.random.seed(0) # 保证环境是一样的
         self.N = N
         self.L = L
         self.C = C

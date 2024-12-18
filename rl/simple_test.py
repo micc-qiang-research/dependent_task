@@ -85,7 +85,7 @@ class DQNAgent(Agent):
 
 
 # random.seed(0)
-np.random.seed(0) # 为了保证机器是一致的
+# np.random.seed(0) # 为了保证机器是一致的
 # env.seed(0)
 # torch.manual_seed(0)
 env = gym.make(env_name, render_modes="human")
