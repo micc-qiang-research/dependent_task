@@ -85,7 +85,7 @@ class DQNAgent(Agent):
 
 
 # random.seed(0)
-np.random.seed(0)
+np.random.seed(0) # 为了保证机器是一致的
 # env.seed(0)
 # torch.manual_seed(0)
 env = gym.make(env_name, render_modes="human")
@@ -103,7 +103,7 @@ results['greedy'] = []
 results['dqn'] = []
 for i in range(10):
     for idx, agent in enumerate(agents):
-        state = env.reset(seed=idx)
+        state = env.reset(seed=i)
         done = False
         total_reward = 0
         while not done:
