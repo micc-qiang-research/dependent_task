@@ -15,12 +15,13 @@ target_update = 10
 buffer_size = 10000
 minimal_size = 500
 batch_size = 64
+max_action_count = 10
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device(
     "cpu")
 
 # env_name = 'CartPole-v0'
 
-env = gym.make(env_name)
+env = gym.make(env_name, render_modes="human")
 random.seed(0)
 np.random.seed(0)
 env.seed(0)
@@ -37,13 +38,20 @@ print("模型已加载")
 
 # # 渲染环境
 # env = gym.make("CartPole-v1")
-env = gym.make(env_name,render_mode="human")
+env = gym.make(env_name,render_modes="human")
 state = env.reset()
 done = False
 total_reward = 0
 while not done:
-    env.render()
+    # env.render()
+    action_count = 1
     action = agent.take_action(state)
+    while not env.valid_action(action) and action_count < max_action_count:
+        action = agent.take_action(state)
+        action_count += 1
+    if not env.valid_action(action):
+        action = action_dim-1
+
     state, reward, done, _, = env.step(action)
     total_reward += reward
     # print(state, reward)

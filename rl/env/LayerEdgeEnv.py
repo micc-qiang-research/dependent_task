@@ -110,19 +110,20 @@ class Data:
         # return machines, layers, containers, trace
     
     def getAnotherTrace(self):
-        return self.getTrace(self.Len)
+        self.trace = self.getTrace(self.Len)
+        return self.trace
 
-np.random.seed(0)
-data = Data(5, 50, 20, 100)
-print(data.machines)
-print(data.cloud)
-print(data.layers)
-print(data.containers)
-print(data.trace)
-print("another: ")
-print(data.getAnotherTrace())
+# np.random.seed(0)
+# data = Data(5, 50, 20, 100)
+# print(data.machines)
+# print(data.cloud)
+# print(data.layers)
+# print(data.containers)
+# print(data.trace)
+# print("another: ")
+# print(data.getAnotherTrace())
 
-print("=================================")
+# print("=================================")
 
 class Task:
     def __init__(self, container: dict, layer_size: list):
@@ -168,10 +169,11 @@ class Core:
         i = P.closedopen(start, end)
         return not self.interval.contains(i)
     
-    def find_est(self, start, end) -> bool:
+    def find_est(self, start, size) -> bool:
         for i in self.interval:
-            if i.lower <= start and i.upper >= end:
-                return i.lower
+            real_start = max(i.lower, start)
+            if i.upper >= real_start + size:
+                return real_start
         assert False, "never be there"
 
 
@@ -221,11 +223,11 @@ class Machine:
         # TODO. container number的限制如何做？
         return True
     
-    def findEstByCore(self, start, end):
+    def findEstByCore(self, start, size):
         res = math.inf
         core_id = -1
         for idx, core in enumerate(self.cores):
-            est = core.find_est(start, end)
+            est = core.find_est(start, size)
             if res > est:
                 res = est
                 core_id = idx
@@ -254,7 +256,7 @@ class Machine:
         
         # 计算Task完成时间
         execute_time = ceil2(task.cpu / self.cpu)
-        core_id, est = self.findEstByCore(ready_time, ready_time+execute_time)
+        core_id, est = self.findEstByCore(ready_time, execute_time)
         self.place(core_id, est, est+execute_time)
         # print(f"{timestamp:.2f}: executing task at [{est:.2f}-{est+execute_time:.2f}) in edge {self.idx}")
         # self.task_finish_time = max(self.download_finish_time, self.task_finish_time) + execute_time
@@ -298,20 +300,21 @@ class Cloud(Machine):
         return True
 
 class LayerEdgeEnv(gym.Env):
-    def __init__(self, render_mode="human"):
+    def __init__(self, render_modes="human"):
         self.data = Data(5, 50, 20, 100)
+        data = self.data
         N,L = data.N, data.L
         obs_dim = N * (3*L+3) + N * (L+5)
         act_dim = N+1
 
         self.observation_space = spaces.Box(
-            low=0, high=math.inf, shape=(obs_dim,), dtype=np.float32)
+            low=0, high=math.inf, shape=(obs_dim,), dtype=np.float64)
         self.action_space = spaces.Discrete(act_dim)
         self.state = None
 
         self.machines = []
         for idx, machine in enumerate(data.machines):
-            self.machines.append(Machine(machine['cpu'], machine['storage'], machine['bandwidth'], data.layers, 1, idx))
+            self.machines.append(Machine(machine['cpu'], machine['storage'], machine['bandwidth'], data.layers, 2, idx))
         # self.machines.append(Machine(data.cloud['cpu'], data.cloud['storage'], data.cloud['bandwidth'], data.layers))
         self.layers = data.layers # layer_size的信息
         self.cloud = Cloud(data.cloud['cpu'], data.cloud['storage'], data.cloud['bandwidth'], data.layers)
@@ -342,9 +345,11 @@ class LayerEdgeEnv(gym.Env):
             state.extend(task.has_layer) # 包含的层
             state.append(task.cpu) # request cpu resource
 
-        return state
+        return np.array(state)
 
-    def reset(self):
+    def reset(self, seed=None, options=None, return_info=None):
+        if seed is not None:
+            np.random.seed(seed)
         self.timestamp = 0
         self.trace_idx = 0
         self.data.getAnotherTrace() # 初始化新的trace

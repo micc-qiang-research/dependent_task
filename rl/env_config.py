@@ -1,6 +1,9 @@
 import gym
 from .env.GridWorldEnv import GridWorldEnv
 from .env.LayerEdgeEnv import LayerEdgeEnv
+import warnings
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # gym.register(
 #     id='GridWorld-v0',
@@ -10,6 +13,6 @@ from .env.LayerEdgeEnv import LayerEdgeEnv
 
 gym.register(
     id='LayerEdgeEnv-v0',
-    entry_point='__main__:LayerEdgeEnv',
+    entry_point='__main__:LayerEdgeEnv'
 )
 env_name = 'LayerEdgeEnv-v0'
