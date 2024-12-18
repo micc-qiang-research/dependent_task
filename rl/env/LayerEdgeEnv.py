@@ -136,27 +136,79 @@ class Task:
             else:
                 self.has_layer.append(0)
 
+def ceil2(value):
+    return math.ceil(value*100)/100
+
+import portion as P
+# 按至少0.01的粒度occupy，否则会有数值问题
+class Core:
+    def __init__(self, idx):
+        self.idx = idx # 机器的第几个core
+        self.interval = P.closedopen(0, P.inf)
+
+    # 占据核[start, end)的资源
+    def occupy(self, start, end):
+        i = P.closedopen(start, end)
+        # 假设已经被别人占领了，则无法占领
+        if not self.interval.contains(i):
+            print(self.interval)
+            print(start, end)
+            assert False, "occupy error"
+
+        # 占领核[start, end)
+        self.interval = self.interval - P.closedopen(start, end)
+    
+    def release(self, start, end):
+        i = P.closedopen(start, end)
+        if not (self.interval & i).empty:
+            assert False, "release error" # 释放的是已经占据的
+        self.interval = self.interval | i
+
+    def is_occupy(self, start, end) -> bool:
+        i = P.closedopen(start, end)
+        return not self.interval.contains(i)
+    
+    def find_est(self, start, end) -> bool:
+        for i in self.interval:
+            if i.lower <= start and i.upper >= end:
+                return i.lower
+        assert False, "never be there"
+
+
+    def __repr__(self):
+        return self.interval.__str__()
+
+    def __str__(self):
+        return self.interval.__str__()
+
+    def __iter__(self):
+        return self.interval.__iter__()
+
 class Machine:
-    def __init__(self, cpu: float, storage: float, bandwidth: float, layer_size: list):
+    def __init__(self, cpu: float, storage: float, bandwidth: float, layer_size: list, core_number:int, idx: int):
         self.cpu = cpu
         self.storage = storage
         self.bandwidth = bandwidth
         self.L = len(layer_size)
         self.layer_size = layer_size
+        self.core_number = core_number
+        self.idx = idx
         self.reset()
 
     def reset(self):
         self.layers = {} # 记录对应layers的下载完成时间
         self.download_finish_time = 0
         # self.tasks = []
-        self.task_finish_time = 0
+        # self.task_finish_time = 0
         self.total_download_size = 0
         self.has_layer = [0] * self.L
+        self.cores = [Core(i) for i in range(self.core_number)]
 
     def getRemainingDownloadTime(self, timestamp: float):
         res = []
         for i in range(self.L):
-            if self.has_layer[i] == 0 or self.layers[i] >= timestamp:
+            # 如果没有下载过或者已经下载完成
+            if self.has_layer[i] == 0 or self.layers[i] <= timestamp:
                 res.append(timestamp)
             else:
                 res.append(self.layers[i])
@@ -168,23 +220,45 @@ class Machine:
             return False
         # TODO. container number的限制如何做？
         return True
-                
-    def addTask(self, task: Task):
-        # self.tasks.append(task)
+    
+    def findEstByCore(self, start, end):
+        res = math.inf
+        core_id = -1
+        for idx, core in enumerate(self.cores):
+            est = core.find_est(start, end)
+            if res > est:
+                res = est
+                core_id = idx
+        return core_id, res
+    
+    def place(self, core_id, start, end):
+        # print(f"edge[{self.idx}-{core_id}] occupy: {start}-{end}")
+        self.cores[core_id].occupy(start, end)
 
-        # 计算Layer下载完成时间
+                
+    def addTask(self, task: Task, timestamp: float):
+        # self.tasks.append(task)
         add_layers = self.getAddLayers(task)
+        # 计算Layer下载完成时间
+        ready_time = timestamp
         for layer in add_layers:
             self.layers[layer] = self.download_finish_time + self.layer_size[layer]/self.bandwidth
             # 记录信息
             self.download_finish_time = self.layers[layer]
             self.has_layer[layer] = 1
             self.total_download_size += self.layer_size[layer]
+        if len(add_layers) > 0:
+            ready_time = max(ready_time, self.download_finish_time)
 
+        ready_time = ceil2(ready_time)
+        
         # 计算Task完成时间
-        execute_time = task.cpu / self.cpu
-        self.task_finish_time = max(self.download_finish_time, self.task_finish_time) + execute_time
-        return self.task_finish_time
+        execute_time = ceil2(task.cpu / self.cpu)
+        core_id, est = self.findEstByCore(ready_time, ready_time+execute_time)
+        self.place(core_id, est, est+execute_time)
+        # print(f"{timestamp:.2f}: executing task at [{est:.2f}-{est+execute_time:.2f}) in edge {self.idx}")
+        # self.task_finish_time = max(self.download_finish_time, self.task_finish_time) + execute_time
+        return est + execute_time
 
     def getAddLayers(self, task: Task):
         # 计算Layer下载完成时间
@@ -197,21 +271,28 @@ class Machine:
 
 class Cloud(Machine):
     def __init__(self, cpu: float, storage: float, bandwidth: float, layer_size: list):
-        super().__init__(cpu, storage, bandwidth, layer_size)
+        super().__init__(cpu, storage, bandwidth, layer_size, 4, -1)
 
-    def addTask(self, task: Task):
+    def addTask(self, task: Task, timestamp: float):
+        add_layers = self.getAddLayers(task)
         # 计算Layer下载完成时间
-        add_layers = task.layer
+        ready_time = timestamp
         for layer in add_layers:
             self.layers[layer] = self.download_finish_time + self.layer_size[layer]/self.bandwidth
             # 记录信息
             self.download_finish_time = self.layers[layer]
+            self.has_layer[layer] = 1
             self.total_download_size += self.layer_size[layer]
+        if len(add_layers) > 0:
+            ready_time = max(ready_time, self.download_finish_time)
+        ready_time = ceil2(ready_time)
 
         # 计算Task完成时间
-        execute_time = task.cpu / self.cpu
-        self.task_finish_time = max(self.download_finish_time, self.task_finish_time) + execute_time
-        return self.task_finish_time
+        execute_time = ceil2(task.cpu / self.cpu)
+        est = ready_time
+        # print(f"{timestamp:.2f}: executing task at [{est}-{est+execute_time}) in cloud")
+        # self.task_finish_time = max(self.download_finish_time, self.task_finish_time) + execute_time
+        return est + execute_time
     
     def isAccommodate(self, task: Task):
         return True
@@ -229,8 +310,8 @@ class LayerEdgeEnv(gym.Env):
         self.state = None
 
         self.machines = []
-        for machine in data.machines:
-            self.machines.append(Machine(machine['cpu'], machine['storage'], machine['bandwidth'], data.layers))
+        for idx, machine in enumerate(data.machines):
+            self.machines.append(Machine(machine['cpu'], machine['storage'], machine['bandwidth'], data.layers, 1, idx))
         # self.machines.append(Machine(data.cloud['cpu'], data.cloud['storage'], data.cloud['bandwidth'], data.layers))
         self.layers = data.layers # layer_size的信息
         self.cloud = Cloud(data.cloud['cpu'], data.cloud['storage'], data.cloud['bandwidth'], data.layers)
@@ -256,7 +337,7 @@ class LayerEdgeEnv(gym.Env):
             addLayerSize = machine.getAddLayersSize(task)
             state.append(addLayerSize) # 需要下载的大小
             state.append(addLayerSize / machine.bandwidth) # 需要下载的时间
-            state.append(max(self.timestamp, machine.task_finish_time)-self.timestamp) # waiting time
+            state.append(max(self.timestamp, machine.download_finish_time)-self.timestamp) # waiting time
             state.append(task.cpu/machine.cpu) # 计算时间
             state.extend(task.has_layer) # 包含的层
             state.append(task.cpu) # request cpu resource
@@ -288,10 +369,10 @@ class LayerEdgeEnv(gym.Env):
         reward = 0
         if action == self.data.N:
             # to cloud
-            reward = -self.cloud.addTask(self.__getTask())
+            reward = -self.cloud.addTask(self.__getTask(), self.timestamp)
         else:
             # to edge
-            reward = -self.machines[action].addTask(self.__getTask())
+            reward = -self.machines[action].addTask(self.__getTask(), self.timestamp)
         # 到下一个task
         self.__next()
         return self.__getState(), reward, self.__idDone(),  {}
