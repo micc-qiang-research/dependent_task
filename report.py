@@ -26,10 +26,10 @@ default_ccr = run_config.ccr
 default_lfr = run_config.lfr
 default_dcr = run_config.dcr
 
-# data_dir = "__result__/app30-序列化下载算法对比/"
 data_dir = "__result__/app30-new/"
 # data_dir = "__result__/app30-new-部署/"
 # data_dir = "__result__/app30-new-序列化/"
+# data_dir = "__result__/app50/"
 
 
 class ExtractFileHelper:
