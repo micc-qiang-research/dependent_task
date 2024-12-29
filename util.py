@@ -157,6 +157,8 @@ def draw_cdf(n, label, filename = "lat_cdf.csv"):
     plt.savefig(output_file)
 
 def draw_cdf_ax(ax, n, label, filename = "lat_cdf.csv"):
+    from config import run_config
+    style = run_config.style 
     input_file = os.path.join(result_path,filename)
     basename, _ = os.path.splitext(filename)
 
@@ -166,7 +168,7 @@ def draw_cdf_ax(ax, n, label, filename = "lat_cdf.csv"):
     prob = data.iloc[:,0]
     for i in range(n):
         delays = data.iloc[:,i+1]
-        ax.plot(delays, prob, label=label[i])
+        ax.plot(delays, prob, label=label[i], color=style[i][0])
 
     #设置图表属性
     ax.set_xlabel('Latency')

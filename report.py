@@ -26,9 +26,9 @@ default_ccr = run_config.ccr
 default_lfr = run_config.lfr
 default_dcr = run_config.dcr
 
-data_dir = "__result__/app30-new/"
+# data_dir = "__result__/app30-new/"
 # data_dir = "__result__/app30-new-部署/"
-# data_dir = "__result__/app30-new-序列化/"
+data_dir = "__result__/app30-new-序列化/"
 # data_dir = "__result__/app50/"
 
 
@@ -180,9 +180,10 @@ def draw_linear(x_name, x, ys):
 
 def draw_linear_ax(ax, x_name, x, ys):
     # print(ys["SDTSPlus"])
-    marker = ['o', 's', 'D', '^', 'v']
+    marker = run_config.style
+    # marker = ['o', 's', 'D', '^', 'v']
     for i,s in enumerate(scheduler):
-        ax.plot(x, ys[s], label=s, marker=marker[i])
+        ax.plot(x, ys[s], label=s, color=marker[i][0], marker=marker[i][1])
 
     # plt.plot(x, [1,2,3,4,5])
     # 添加标题和轴标签
@@ -326,8 +327,8 @@ def draw_half():
     f.subplots_adjust(hspace=0.4, wspace=0.4)
     plt.show()
 
-draw_full()
-# draw_half()
+# draw_full()
+draw_half()
 
 
 
