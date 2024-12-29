@@ -19,7 +19,7 @@ class Type:
     LFR = 2
     DCR = 3
 
-typename = ["k", "ccr", "lfr", "dcr"]
+typename = ["K", "CCR", "LFR", "DCR"]
 
 default_k = run_config.K
 default_ccr = run_config.ccr
@@ -310,7 +310,7 @@ def draw_full():
 # 画二宫图
 def draw_half():
     import matplotlib.pyplot as plt
-    f, ax = plt.subplots(1, 2, figsize=(6, 2.75))
+    f, ax = plt.subplots(1, 2, figsize=(6.5, 3))
     #设置主标题
     # f.suptitle('My Figure')
     #设置子标题
@@ -324,7 +324,8 @@ def draw_half():
     prepare_draw_cdf(makespan)
     draw_cdf_ax(ax[1], len(scheduler), scheduler, "lat_cdf.csv")
 
-    f.subplots_adjust(hspace=0.4, wspace=0.4)
+    # f.subplots_adjust(hspace=0.4, wspace=0.4)
+    plt.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.15, wspace=0.4, hspace=0.1)
     plt.show()
 
 # draw_full()

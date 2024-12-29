@@ -171,8 +171,8 @@ def draw_cdf_ax(ax, n, label, filename = "lat_cdf.csv"):
         ax.plot(delays, prob, label=label[i], color=style[i][0])
 
     #设置图表属性
-    ax.set_xlabel('Latency')
-    ax.set_ylabel('CDF') 
+    ax.set_xlabel('Makespan')
+    ax.set_ylabel('Percent (%)') 
     # plt.xlim(0,80000)
     ax.legend()
 
