@@ -229,9 +229,9 @@ if __name__ == '__main__':
                     cnt += 1
                     print(f"==========={cnt}/{len(K)*len(CCRs)*len(LFRs) * len(DCRs)}===============")
                     print("k: {}, ccr: {}, lfr: {}, dcr: {}".format(*data))
-                    rename
-                    rename(k ,ccr, lfr, dcr)
-                    continue
+                    # rename
+                    # rename(k ,ccr, lfr, dcr)
+                    # continue
                     if check_exist(*data):
                         print("using cache!")
                         continue

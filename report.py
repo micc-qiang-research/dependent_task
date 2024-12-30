@@ -28,8 +28,9 @@ default_dcr = run_config.dcr
 
 # data_dir = "__result__/app30-new/"
 # data_dir = "__result__/app30-new-部署/"
-data_dir = "__result__/app30-new-序列化/"
+# data_dir = "__result__/app30-new-序列化/"
 # data_dir = "__result__/app50/"
+data_dir = "__result__/app50-new-部署/"
 
 
 class ExtractFileHelper:
@@ -328,8 +329,8 @@ def draw_half():
     plt.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.15, wspace=0.4, hspace=0.1)
     plt.show()
 
-# draw_full()
-draw_half()
+draw_full()
+# draw_half()
 
 
 
