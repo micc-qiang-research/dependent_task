@@ -29,8 +29,9 @@ default_dcr = run_config.dcr
 # data_dir = "__result__/app30-new/"
 # data_dir = "__result__/app30-new-部署/"
 # data_dir = "__result__/app30-new-序列化/"
-# data_dir = "__result__/app50/"
-data_dir = "__result__/app50-new-部署/"
+data_dir = "__result__/app50/"
+# data_dir = "__result__/app50-new-部署/"
+# data_dir = "__result__/app50-new-序列化/"
 
 
 class ExtractFileHelper:

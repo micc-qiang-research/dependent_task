@@ -157,6 +157,7 @@ def draw_cdf(n, label, filename = "lat_cdf.csv"):
     plt.savefig(output_file)
 
 def draw_cdf_ax(ax, n, label, filename = "lat_cdf.csv"):
+    import pandas as pd
     from config import run_config
     style = run_config.style 
     input_file = os.path.join(result_path,filename)
@@ -164,12 +165,19 @@ def draw_cdf_ax(ax, n, label, filename = "lat_cdf.csv"):
 
     #读取CSV文件
     data = pd.read_csv(input_file)
+    max_delay = -1
 
     prob = data.iloc[:,0]
     for i in range(n):
         delays = data.iloc[:,i+1]
         ax.plot(delays, prob, label=label[i], color=style[i][0])
+        max_delay = max(max_delay, max(delays))
+        df = pd.DataFrame(np.array([delays,prob]).T, columns=['delay', 'prob'])
+        df.to_csv(f'{result_path}/{label[i]}.txt')
 
+    # ax.axvline(x=50, color='black', linestyle='--', linewidth=1)
+    # ax.set_xticks([0, 20, 40, 60, 80, 100])
+    ax.set_xticks(np.arange(0, max_delay+1, 25))
     #设置图表属性
     ax.set_xlabel('Makespan')
     ax.set_ylabel('Percent (%)') 
