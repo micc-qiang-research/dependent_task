@@ -162,23 +162,28 @@ def get_makespan(ltype):
     return makespans, vals
 
 def draw_linear(x_name, x, ys):
-    plt.rcParams.update({"font.size":14})
+    # plt.rcParams.update({"font.size":14})
     # print(ys["SDTSPlus"])
-    for s in scheduler:
-        plt.plot(x, ys[s], label=s)
+    plt.figure(figsize=(8, 6))
+    marker = run_config.style
+    for i,s in enumerate(scheduler):
+        plt.plot(x, ys[s], label=s,color=marker[i][0], marker=marker[i][1])
 
     # plt.plot(x, [1,2,3,4,5])
     # 添加标题和轴标签
-    plt.title(x_name)
+    # plt.title(x_name)
     plt.xlabel(x_name)
-    plt.ylabel('Avg. Makespan')
+    plt.ylabel('平均 Makespan')
     plt.xticks(x)
+    plt.grid(True, linestyle='--', alpha=0.7)
 
     # 添加图例
     plt.legend()
 
     # 展示图形
-    plt.show()
+    # plt.show()
+    plt.savefig(f"__result__/{x_name}.pdf",bbox_inches='tight')
+    plt.close()
 
 def draw_linear_ax(ax, x_name, x, ys):
     # print(ys["SDTSPlus"])
@@ -330,7 +335,7 @@ def draw_half():
     plt.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.15, wspace=0.4, hspace=0.1)
     plt.show()
 
-draw_full()
+# draw_full()
 # draw_half()
 
 

@@ -38,6 +38,23 @@ prepare_color = colors[-3]
 download_color = colors[-2]
 user_color = colors[-1]
 
+# 防止中文乱码
+import matplotlib.pyplot as plt
+font_name = "simhei"
+plt.rcParams['font.family']= font_name # 指定字体，实际上相当于修改 matplotlibrc 文件　只不过这样做是暂时的　下次失效
+plt.rcParams['axes.unicode_minus']=False # 正确显示负号，防止变成方框
+
+# 1. 全局字体大小设置
+plt.rcParams.update({
+    'font.size': 16,              # 基础字体大小
+    'axes.labelsize': 16,         # 坐标轴标签字体大小
+    'axes.titlesize': 16,         # 标题字体大小
+    'xtick.labelsize': 14,        # x轴刻度标签字体大小
+    'ytick.labelsize': 14,        # y轴刻度标签字体大小
+    'legend.fontsize': 16,        # 图例字体大小
+    'figure.titlesize': 18,        # 图表标题字体大小
+})
+
 class PQueue:
     def __init__(self):
         self.queue = PriorityQueue()
@@ -137,8 +154,11 @@ def prepare_draw_cdf(data):
 def draw_cdf(n, label, filename = "lat_cdf.csv"):
     input_file = os.path.join(result_path,filename)
     basename, _ = os.path.splitext(filename)
-    output_file = os.path.join(result_path,basename+".png")
-    plt.rcParams.update({"font.size":14})
+    output_file = os.path.join(result_path,basename+".pdf")
+    # plt.rcParams.update({"font.size":14})
+    from config import run_config
+    style = run_config.style
+    plt.figure(figsize=(8, 6))
 
     #读取CSV文件
     data = pd.read_csv(input_file)
@@ -146,15 +166,18 @@ def draw_cdf(n, label, filename = "lat_cdf.csv"):
     prob = data.iloc[:,0]
     for i in range(n):
         delays = data.iloc[:,i+1]
-        plt.plot(delays, prob, label=label[i])
+        plt.plot(delays, prob, label=label[i], color=style[i][0], linewidth=2)
 
     #设置图表属性
-    plt.xlabel('Latency')
-    plt.ylabel('CDF') 
+    plt.axvline(x=50, color='black', linestyle='--', linewidth=1)
+    plt.xlabel('Makespan')
+    plt.ylabel('比例（%）')
+    plt.grid(True, linestyle='--', alpha=0.7) 
     # plt.xlim(0,80000)
     plt.legend()
-    plt.show()
-    plt.savefig(output_file)
+    # plt.show()
+    plt.savefig(output_file,bbox_inches='tight')
+    plt.close()
 
 def draw_cdf_ax(ax, n, label, filename = "lat_cdf.csv"):
     import pandas as pd
