@@ -41,18 +41,19 @@ user_color = colors[-1]
 # 防止中文乱码
 import matplotlib.pyplot as plt
 font_name = "simhei"
+# font_name = "simsun"
 plt.rcParams['font.family']= font_name # 指定字体，实际上相当于修改 matplotlibrc 文件　只不过这样做是暂时的　下次失效
 plt.rcParams['axes.unicode_minus']=False # 正确显示负号，防止变成方框
 
 # 1. 全局字体大小设置
 plt.rcParams.update({
-    'font.size': 16,              # 基础字体大小
-    'axes.labelsize': 16,         # 坐标轴标签字体大小
-    'axes.titlesize': 16,         # 标题字体大小
-    'xtick.labelsize': 14,        # x轴刻度标签字体大小
-    'ytick.labelsize': 14,        # y轴刻度标签字体大小
-    'legend.fontsize': 16,        # 图例字体大小
-    'figure.titlesize': 18,        # 图表标题字体大小
+    'font.size': 24,              # 基础字体大小
+    'axes.labelsize': 24,         # 坐标轴标签字体大小
+    'axes.titlesize': 24,         # 标题字体大小
+    'xtick.labelsize': 22,        # x轴刻度标签字体大小
+    'ytick.labelsize': 22,        # y轴刻度标签字体大小
+    'legend.fontsize': 24,        # 图例字体大小
+    'figure.titlesize': 26        # 图表标题字体大小
 })
 
 class PQueue:
