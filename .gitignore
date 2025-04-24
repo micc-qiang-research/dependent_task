@@ -6,3 +6,4 @@ dag*
 data/json*
 data/application*
 __result__
+!data/json
