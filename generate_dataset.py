@@ -14,6 +14,7 @@ _c = range(1, 4) # 核数量 cloud:4
 _e = 0.5 # 默认edge权重
 _l = 0.2 # layer大小，归一化为0.2， 100M带宽下载0.2s即可
 # _d = 1 # server之间传送数据的开销 _e*_d / _t = CCR
+seed = 0
 
 import pydot
 import numpy as np
@@ -70,7 +71,8 @@ Input:
     dcr: download to computation ratio
     lfr: layer number to function number ratio
 '''
-def build_data(filename, K=3, lfr=2, ccr=0.5, dcr=5):
+def build_data(filename, K=3, lfr=2, ccr=0.5, dcr=5, seed = 0):
+    np.random.seed(seed)
     graph = pydot.graph_from_dot_file(filename)[0]
     n_nodes = len(graph.get_nodes())
 
@@ -170,7 +172,7 @@ def traverse_and_build(K, ccr, lfr, dcr):
     pool = mp.Pool(8)    
     pbar = tqdm(total=len(filenames))
 
-    results = [pool.apply_async(build_data, (filename, K,lfr,ccr, dcr), callback=lambda _:pbar.update(1)) for filename in filenames]
+    results = [pool.apply_async(build_data, (filename, K,lfr,ccr, dcr, seed), callback=lambda _:pbar.update(1)) for filename in filenames]
 
     for res in results:
         result = res.get()
