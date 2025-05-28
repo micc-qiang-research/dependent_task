@@ -24,6 +24,8 @@ run_config = SimpleNamespace(**{
     
     "style": [['c','o'], ['g','s'], ['royalblue', 'v'], ['m','^'], ['r','D']],
 
+    "linestyle" : [(0, (5, 1)),'dotted','dashed','dashdot','solid'],
+
     # 调度策略的 部署+序列化下载决策
     "HEFT": ["HEFT", "FCFS"],
     "GenDoc": ["GenDoc", "FCFS"],

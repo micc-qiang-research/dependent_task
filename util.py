@@ -167,7 +167,7 @@ def draw_cdf(n, label, filename = "lat_cdf.csv"):
     prob = data.iloc[:,0]
     for i in range(n):
         delays = data.iloc[:,i+1]
-        plt.plot(delays, prob, label=label[i], color=style[i][0], linewidth=2)
+        plt.plot(delays, prob, label=label[i], color=style[i][0], linewidth=3)
 
     #设置图表属性
     plt.axvline(x=50, color='black', linestyle='--', linewidth=1)

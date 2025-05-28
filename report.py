@@ -166,8 +166,9 @@ def draw_linear(x_name, x, ys):
     # print(ys["SDTSPlus"])
     plt.figure(figsize=(8, 6))
     marker = run_config.style
+    linestyle=run_config.linestyle
     for i,s in enumerate(scheduler):
-        plt.plot(x, ys[s], label=s,color=marker[i][0], marker=marker[i][1])
+        plt.plot(x, ys[s], label=s,color=marker[i][0], marker=marker[i][1], linestyle=linestyle[i], linewidth=3)
 
     # plt.plot(x, [1,2,3,4,5])
     # 添加标题和轴标签
